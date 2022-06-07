@@ -1,5 +1,5 @@
 #include "TokenParser.h"
-#include "CPU.h"
+#include "Config.h"
 #include <string>
 
 void TokenParser::Parse(const char* line, const char* delimiters)
@@ -23,17 +23,17 @@ void TokenParser::Parse(const char* line, const char* delimiters)
 	{
 		switch (tokens[0])
 		{
-		case DIRECTIVE_CHAR[0]:
+		case DIRECTIVE_SYM[0]:
 			_lineType = LineType::Directive;
 			_tokenTypes.push_back(_lineType);
 			break;
 
-		case SYMBOL_CHAR[0]:
+		case SYMBOL_SYM[0]:
 			_lineType = LineType::Symbol;
 			_tokenTypes.push_back(_lineType);
 			break;
 
-		case LABEL_CHAR[0]:
+		case LABEL_SYM[0]:
 			_lineType = LineType::Label;
 			_tokenTypes.push_back(_lineType);
 			break;
