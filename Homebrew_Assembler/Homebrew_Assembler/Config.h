@@ -1,21 +1,19 @@
 #ifndef CONFIG_H
 #define CONFIG_H
-#endif
 
-#include <string>
+// Define symbols for interpreting lines (can be multiple characters, if desired)
+constexpr const char* DIRECTIVE_KEYS = ".";
+constexpr const char* SYMBOL_KEYS = "@";
+constexpr const char* LABEL_KEYS = "[]:";
 
-// Define symbols for interpreting lines (only one character is allowed!)
-constexpr const char* DIRECTIVE_SYM = ".";
-constexpr const char* SYMBOL_SYM = "@";
+// Define symbols for number types (only one character allowed, only one of these three can be blank)
+constexpr const char* BIN_KEY = "%";
+constexpr const char* HEX_KEY = "$";
+constexpr const char* DEC_KEY = "";
 
-// Multiple characters allowed!
-constexpr const char* LABEL_SYM = "[]:";
-
-// Define symbols for number types (only one can be blank)
-constexpr const char* BIN_SYM = "%";
-constexpr const char* HEX_SYM = "$";
-constexpr const char* DEC_SYM = "";
-
-// Define strings for 
+// Define strings for origin and export directives (do not incude DIRECTIVE_KEYS defined above...
+// this will be added automatically)
 constexpr const char* ORIGIN_STR = "org";
 constexpr const char* EXPORT_STR = "export";
+
+#endif

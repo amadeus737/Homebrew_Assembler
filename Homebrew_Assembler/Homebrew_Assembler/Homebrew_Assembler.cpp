@@ -93,9 +93,9 @@ int main(int argc, char** argv)
 				{
 					//printf("   -> %s\n", tokens[i]);
 
-					char* directive_parse = strtok(tokens[i], DIRECTIVE_SYM);
-					char* symbol_parse = strtok(tokens[i], SYMBOL_SYM);
-					char* label_parse = strtok(tokens[i], LABEL_SYM);
+					char* directive_parse = strtok(tokens[i], DIRECTIVE_KEYS);
+					char* symbol_parse = strtok(tokens[i], SYMBOL_KEYS);
+					char* label_parse = strtok(tokens[i], LABEL_KEYS);
 
 					//printf(" ....dir parse : %s\n", directive_parse);
 					//printf(" ....sym parse : %s\n", symbol_parse);
@@ -342,9 +342,9 @@ bool IsNumeric(char* c)
 	}
 
 	// Also need to test for number type prefixes
-	number = number || !strcmp(c, BIN_SYM);
-	number = number || !strcmp(c, HEX_SYM);
-	number = number || !strcmp(c, DEC_SYM);
+	number = number || !strcmp(c, BIN_KEY);
+	number = number || !strcmp(c, HEX_KEY);
+	number = number || !strcmp(c, DEC_KEY);
 
 	return number;
 }
@@ -377,25 +377,25 @@ void CalculateBase(char* tokens, int* base, char** arg)
 
 	switch (tokens[0])
 	{
-		case BIN_SYM[0]:
+		case BIN_KEY[0]:
 			*base = 2;
-			if (BIN_SYM != "") *arg = strtok(*arg, BIN_SYM);
+			if (BIN_KEY != "") *arg = strtok(*arg, BIN_KEY);
 			break;
 
-		case HEX_SYM[0]:
+		case HEX_KEY[0]:
 			*base = 16;
-			if (HEX_SYM != "") *arg = strtok(*arg, HEX_SYM);
+			if (HEX_KEY != "") *arg = strtok(*arg, HEX_KEY);
 			break;
 
-		case DEC_SYM[0]:
+		case DEC_KEY[0]:
 			*base = 10;
-			if (DEC_SYM != "") *arg = strtok(*arg, DEC_SYM);
+			if (DEC_KEY != "") *arg = strtok(*arg, DEC_KEY);
 			break;
 
 		default:
-			if (BIN_SYM == "") *base = 2;
-			if (HEX_SYM == "") *base = 16;
-			if (DEC_SYM == "") *base = 10;
+			if (BIN_KEY == "") *base = 2;
+			if (HEX_KEY == "") *base = 16;
+			if (DEC_KEY == "") *base = 10;
 			break;
 	}
 }
