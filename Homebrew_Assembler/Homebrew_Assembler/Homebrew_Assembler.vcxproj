@@ -149,12 +149,12 @@
   <ItemGroup>
     <ClCompile Include="CPU.cpp" />
     <ClCompile Include="Homebrew_Assembler.cpp" />
-    <ClCompile Include="TokenParser.cpp" />
+    <ClCompile Include="FileParser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
     <ClInclude Include="CPU.h" />
-    <ClInclude Include="TokenParser.h" />
+    <ClInclude Include="FileParser.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="default.asm" />

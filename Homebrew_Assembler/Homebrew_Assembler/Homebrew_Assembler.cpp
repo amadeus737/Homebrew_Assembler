@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string>
 #include <fstream>
-#include "TokenParser.h"
+#include "FileParser.h"
 #include "Config.h"
 
 using namespace std;
@@ -17,8 +17,7 @@ string labels[10];
 int replacementValues[10];
 int main(int argc, char** argv)
 {
-	TokenParser tokenParser = TokenParser();
-
+	FileParser fileParser = FileParser();
 
 	if (argc > 2)
 	{
@@ -65,12 +64,12 @@ int main(int argc, char** argv)
 			// Pull in each line individually...will repeat until EOF
 			while (getline(inFile, line))
 			{
-				//-----------------------------------------------------------------------------------------------------
-				// *** PARSING PASS 0: Convert input file into tokens delimited by space, tab, or commas ***
-				//-----------------------------------------------------------------------------------------------------
+				//--------------------------------------------------------------------------------------
+				// *** PARSING PASS 0: Parse lines into tokens using space, tab, or comma delimiters ***
+				//--------------------------------------------------------------------------------------
 
-				// Token parse object needs to be reset for every line!
-				tokenParser.Reset();
+				// Line parse object needs to be reset for every line!
+				fileParser.Reset();
 
 				// Convert the line that was pulled in into an array of characters
 				const char* c_line = line.c_str();
@@ -79,13 +78,13 @@ int main(int argc, char** argv)
 				printf("\n %d: \"%s\"\n", linenum, c_line);
 
 				// Parse initial tokens
-				tokenParser.Parse(c_line, " ,\t");
+				fileParser.Parse(c_line, " ,\t");
 
-				int nTokens = tokenParser.NumTokens();
-				LineType lineType = tokenParser.GetLineType();
-				vector<char*> tokens = tokenParser.GetTokens();
+				int nTokens = fileParser.NumTokens();
+				LineType lineType = fileParser.GetLineType();
+				vector<char*> tokens = fileParser.GetTokens();
 
-				//printf("   ->*** %s ***\n", tokenParser.GetLineTypeString());
+				//printf("   ->*** %s ***\n", fileParser.GetLineTypeString());
 
 				char* label = NULL;
 				Command currCommand = Command::None;
