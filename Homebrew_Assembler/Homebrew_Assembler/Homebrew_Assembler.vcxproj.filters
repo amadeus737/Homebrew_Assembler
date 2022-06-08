@@ -16,6 +16,9 @@
     <Filter Include="Code">
       <UniqueIdentifier>{53c67323-fbae-4dc2-ac72-0498e1894969}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Architecture">
+      <UniqueIdentifier>{36fe3172-81f3-4e8a-adea-3e5aaf1d1caa}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Homebrew_Assembler.cpp">
@@ -34,8 +37,11 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="demo.asm">
+    <None Include="Assembly Code\demo.asm">
       <Filter>Code</Filter>
+    </None>
+    <None Include="Architecture Config\homebrew.arch">
+      <Filter>Architecture</Filter>
     </None>
   </ItemGroup>
 </Project>

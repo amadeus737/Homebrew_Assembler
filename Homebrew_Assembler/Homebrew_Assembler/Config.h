@@ -17,6 +17,6 @@ constexpr const char* ORIGIN_STR = "org";
 constexpr const char* EXPORT_STR = "export";
 
 // This sets how many symbols or labels can be stored in the assembler
-#define MAX_LABELS 10
+#define MAX_LABELS 100
 
 #endif

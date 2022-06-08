@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 		if (argc < 2)
 		{
 			printf("WARNING! : Expected input file! Using demo.asm as default\n");
-			filename = (char*)"..\\Homebrew_Assembler\\demo.asm";
+			filename = (char*)"..\\Homebrew_Assembler\\Assembly Code\\demo.asm";
 		}
 		else
 		{

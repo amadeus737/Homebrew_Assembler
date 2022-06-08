@@ -1,0 +1,88 @@
+; Define registers
+register	8		a, b, c, d, e, f
+register	16		pc, ra, int
+register	16		sp, si, di
+
+; Define opcodes
+; nop
+opcode	nop			00
+
+; Constant load opcodes (x86 style)
+opcode	mov a, #	01
+opcode	mov b, #	02
+opcode	mov c, #	03
+opcode	mov d, #	04
+opcode	mov e, #	05
+opcode	mov f, #	06
+
+; Constant load opcodes (6502 style)
+opcode	lda, #		01
+opcode	ldb, #		02
+opcode	ldc, #		03
+opcode	ldd, #		04
+opcode	lde, #		05
+opcode	ldf, #		06
+
+; Register transfer opcodes (x86 style)
+opcode	mov a, b	07
+opcode	mov a, c	08
+opcode	mov a, d	09
+opcode	mov a, e	0a
+opcode	mov a, f	0b
+opcode	mov b, a	0c
+opcode	mov b, c	0d
+opcode	mov b, d	0e
+opcode	mov b, e	0f
+opcode	mov b, f	10
+opcode	mov c, a	11
+opcode	mov c, b	12
+opcode	mov c, d	13
+opcode	mov c, e	14
+opcode	mov c, f	15
+opcode	mov d, a	16
+opcode	mov d, b	17
+opcode	mov d, c	18
+opcode	mov d, e	19
+opcode	mov d, f	1a
+opcode	mov e, a	1b
+opcode	mov e, b	1c
+opcode	mov e, c	1d
+opcode	mov e, d	1e
+opcode	mov e, f	1f
+opcode	mov f, a	20
+opcode	mov f, b	21
+opcode	mov f, c	22
+opcode	mov f, d	23
+opcode	mov f, e	24
+
+; Register transfer opcodes (6502 style)
+opcode	tab		07
+opcode	tac		08
+opcode	tad		09
+opcode	tae		0a
+opcode	taf		0b
+opcode	tba		0c
+opcode	tbc		0d
+opcode	tbd		0e
+opcode	tbe		0f
+opcode	tbf		10
+opcode	tca		11
+opcode	tcb		12
+opcode	tcd		13
+opcode	tce		14
+opcode	tcf		15
+opcode	tda		16
+opcode	tdb		17
+opcode	tdc		18
+opcode	tde		19
+opcode	tdf		1a
+opcode	tea		1b
+opcode	teb		1c
+opcode	tec		1d
+opcode	ted		1e
+opcode	tef		1f
+opcode	tfa		20
+opcode	tfb		21
+opcode	tfc		22
+opcode	tfd		23
+opcode	tfe		24
