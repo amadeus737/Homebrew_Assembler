@@ -319,59 +319,65 @@ void Parser::ParseToken(int i)
 			// New opcode flag meant to only trigger this code block once
 			_newOpCode = false;
 
-			// If the argument is a number
-			if (IsNumeric(arg))
+			if (i < _numTokens)
 			{
-				if (base != -1)
+				// If the argument is a number
+				if (IsNumeric(arg))
 				{
-					// Convert parsed token to integer via the base
-					int arg0 = stoi(arg, nullptr, base);
-					printf("      -- %02x : %02x\n", _address, arg0);
+					if (base != -1)
+					{
+						// Convert parsed token to integer via the base
+						int arg0 = stoi(arg, nullptr, base);
+						printf("      -- %02x : %02x\n", _address, arg0);
 
-					// Increment address by 8 bytes (change later if needed)
-					_address += 8;
+						// Increment address by 8 bytes (change later if needed)
+						_address += 8;
+					}
 				}
-			}
-			else
-			{
-				// If the argument is a label in the label dictionary...
-				if (GetLabel(arg))
+				else
 				{
-					printf("      -- %02x : %02x\n", _address, _replacementValue);
+					// If the argument is a label in the label dictionary...
+					if (GetLabel(arg))
+					{
+						printf("      -- %02x : %02x\n", _address, _replacementValue);
 
-					// Increment address by 8 bytes (change later if needed)
-					_address += 8;
+						// Increment address by 8 bytes (change later if needed)
+						_address += 8;
+					}
 				}
-			}
 
-			// Process next argument, if present
-			CalculateBase(i + 1, &base, &arg);
-
-			// Handle numerical argument
-			if (IsNumeric(arg))
-			{
-				if (base != -1)
+				if (i + 1 < _numTokens)
 				{
-					// Convert parsed token to integer via the base
-					int arg1 = stoi(arg, nullptr, base);
-					printf("      -- %02x : %02x\n", _address, arg1);
+					// Process next argument, if present
+					CalculateBase(i + 1, &base, &arg);
 
-					// Increment address by 8 bytes (change later if needed)
-					_address += 8;
-				}
-			}
-			else
-			{
-				// If the argument is a label in the label dictionary...
-				if (GetLabel(arg))
-				{
-					printf("      -- %02x : %02x\n", _address, _replacementValue);
+					// Handle numerical argument
+					if (IsNumeric(arg))
+					{
+						if (base != -1)
+						{
+							// Convert parsed token to integer via the base
+							int arg1 = stoi(arg, nullptr, base);
+							printf("      -- %02x : %02x\n", _address, arg1);
 
-					// Increment address by 8 bytes (change later if needed)
-					_address += 8;
+							// Increment address by 8 bytes (change later if needed)
+							_address += 8;
+						}
+					}
+					else
+					{
+						// If the argument is a label in the label dictionary...
+						if (GetLabel(arg))
+						{
+							printf("      -- %02x : %02x\n", _address, _replacementValue);
 
-					// Clear token type since we've processed a complete opcode command
-					_currTokenType = TokenType::None;
+							// Increment address by 8 bytes (change later if needed)
+							_address += 8;
+
+							// Clear token type since we've processed a complete opcode command
+							_currTokenType = TokenType::None;
+						}
+					}
 				}
 			}
 		}
@@ -460,11 +466,11 @@ bool Parser::IsNumeric(char* c)
 
 bool Parser::IsAMnemonic(char* c)
 {
-	string mnemonics[2] = { "nop", "mov" };
+	string mnemonics[5] = { "nop", "mov", "lda", "tba", "stc" };
 
 	// Just compare to mnemonics and return if there's a match
 	bool mnemonic = false;
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < 5; i++)
 		mnemonic = mnemonic || !strcmp(c, mnemonics[i].c_str());
 
 	return mnemonic;
