@@ -21,26 +21,20 @@
     <ClCompile Include="Homebrew_Assembler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TokenParser.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CPU.cpp">
+    <ClCompile Include="Parser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="TokenParser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CPU.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Parser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="default.asm">
+    <None Include="demo.asm">
       <Filter>Code</Filter>
     </None>
   </ItemGroup>

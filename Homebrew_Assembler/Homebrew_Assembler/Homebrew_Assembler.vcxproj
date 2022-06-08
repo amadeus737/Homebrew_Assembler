@@ -141,17 +141,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="CPU.cpp" />
     <ClCompile Include="Homebrew_Assembler.cpp" />
-    <ClCompile Include="TokenParser.cpp" />
+    <ClCompile Include="Parser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
-    <ClInclude Include="CPU.h" />
-    <ClInclude Include="TokenParser.h" />
+    <ClInclude Include="Parser.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="default.asm" />
+    <None Include="demo.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
