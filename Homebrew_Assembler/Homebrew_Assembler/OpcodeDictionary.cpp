@@ -9,6 +9,7 @@ OpcodeDictionary::OpcodeDictionary()
 	currArg1string = "";
 	currValue = -1;
 	currNumArgs = -1;
+	currSize = 0;
 
 	_mnemonics.clear();
 	_numArgs.clear();
@@ -17,6 +18,7 @@ OpcodeDictionary::OpcodeDictionary()
 	_arg1types.clear();
 	_arg0strings.clear();
 	_arg1strings.clear();
+	_sizes.clear();
 }
 
 int OpcodeDictionary::NumOpcodes()
@@ -33,9 +35,10 @@ void OpcodeDictionary::AddCurrentEntry()
 	_arg1types.push_back(currArg1type);
 	_arg0strings.push_back(currArg0string);
 	_arg1strings.push_back(currArg1string);
+	_sizes.push_back(currSize);
 }
 
-void OpcodeDictionary::Add2Arg(string m, string a0, string a1, int v)
+void OpcodeDictionary::Add2Arg(string m, string a0, string a1, int s, int v)
 {
 	_mnemonics.push_back(m);
 	_numArgs.push_back(2);
@@ -44,6 +47,7 @@ void OpcodeDictionary::Add2Arg(string m, string a0, string a1, int v)
 	_arg0strings.push_back(a0);
 	_arg1strings.push_back(a1);
 	_values.push_back(v);
+	_sizes.push_back(s);
 
 	currMnemonic = m;
 	currNumArgs = 2;
@@ -52,9 +56,10 @@ void OpcodeDictionary::Add2Arg(string m, string a0, string a1, int v)
 	currArg0string = a0;
 	currArg1string = a1;
 	currValue = v;
+	currSize = s;
 }
 
-void OpcodeDictionary::Add2Arg(string m, string a0, int a1, int v)
+void OpcodeDictionary::Add2Arg(string m, string a0, int a1, int s, int v)
 {
 	_mnemonics.push_back(m);
 	_numArgs.push_back(2);
@@ -63,6 +68,7 @@ void OpcodeDictionary::Add2Arg(string m, string a0, int a1, int v)
 	_arg0strings.push_back(a0);
 	_arg1strings.push_back("");
 	_values.push_back(v);
+	_sizes.push_back(s);
 
 	currMnemonic = m;
 	currNumArgs = 2;
@@ -71,9 +77,10 @@ void OpcodeDictionary::Add2Arg(string m, string a0, int a1, int v)
 	currArg0string = a0;
 	currArg1string = "";
 	currValue = v;
+	currSize = s;
 }
 
-void OpcodeDictionary::Add2Arg(string m, int a0, string a1, int v)
+void OpcodeDictionary::Add2Arg(string m, int a0, string a1, int s, int v)
 {
 	_mnemonics.push_back(m);
 	_numArgs.push_back(2);
@@ -82,6 +89,7 @@ void OpcodeDictionary::Add2Arg(string m, int a0, string a1, int v)
 	_arg0strings.push_back("");
 	_arg1strings.push_back(a1);
 	_values.push_back(v);
+	_sizes.push_back(s);
 
 	currMnemonic = m;
 	currNumArgs = 2;
@@ -90,9 +98,10 @@ void OpcodeDictionary::Add2Arg(string m, int a0, string a1, int v)
 	currArg0string = "";
 	currArg1string = a1;
 	currValue = v;
+	currSize = s;
 }
 
-void OpcodeDictionary::Add1Arg(string m, string a0, int v)
+void OpcodeDictionary::Add1Arg(string m, string a0, int s, int v)
 {
 	_mnemonics.push_back(m);
 	_numArgs.push_back(1);
@@ -101,6 +110,7 @@ void OpcodeDictionary::Add1Arg(string m, string a0, int v)
 	_arg0strings.push_back(a0);
 	_arg1strings.push_back("");
 	_values.push_back(v);
+	_sizes.push_back(s);
 
 	currMnemonic = m;
 	currNumArgs = 1;
@@ -109,9 +119,10 @@ void OpcodeDictionary::Add1Arg(string m, string a0, int v)
 	currArg0string = a0;
 	currArg1string = "";
 	currValue = v;
+	currSize = s;
 }
 
-void OpcodeDictionary::Add1Arg(string m, int a0, int v)
+void OpcodeDictionary::Add1Arg(string m, int a0, int s, int v)
 {
 	_mnemonics.push_back(m);
 	_numArgs.push_back(1);
@@ -120,6 +131,7 @@ void OpcodeDictionary::Add1Arg(string m, int a0, int v)
 	_arg0strings.push_back("");
 	_arg1strings.push_back("");
 	_values.push_back(v);
+	_sizes.push_back(s);
 
 	currMnemonic = m;
 	currNumArgs = 1;
@@ -128,9 +140,10 @@ void OpcodeDictionary::Add1Arg(string m, int a0, int v)
 	currArg0string = "";
 	currArg1string = "";
 	currValue = v;
+	currSize = s;
 }
 
-void OpcodeDictionary::Add0Arg(string m, int v)
+void OpcodeDictionary::Add0Arg(string m, int s, int v)
 {
 	_mnemonics.push_back(m);
 	_numArgs.push_back(0);
@@ -139,6 +152,7 @@ void OpcodeDictionary::Add0Arg(string m, int v)
 	_arg0strings.push_back("");
 	_arg1strings.push_back("");
 	_values.push_back(v);
+	_sizes.push_back(s);
 
 	currMnemonic = m;
 	currNumArgs = 1;
@@ -147,9 +161,10 @@ void OpcodeDictionary::Add0Arg(string m, int v)
 	currArg0string = "";
 	currArg1string = "";
 	currValue = v;
+	currSize = s;
 }
 
-bool OpcodeDictionary::Get0ArgOpcode(string m, int* v)
+bool OpcodeDictionary::Get0ArgOpcode(string m, int *s, int* v)
 {
 	for (int i = 0; i < _mnemonics.size(); i++)
 	{
@@ -159,6 +174,7 @@ bool OpcodeDictionary::Get0ArgOpcode(string m, int* v)
 		{
 			if (_numArgs[i] == 0)
 			{
+				*s = _sizes[i];
 				*v = _values[i];
 
 				return true;
@@ -169,7 +185,7 @@ bool OpcodeDictionary::Get0ArgOpcode(string m, int* v)
 	return false;
 }
 
-bool OpcodeDictionary::Get1ArgOpcode(string m, string a0, int* v)
+bool OpcodeDictionary::Get1ArgOpcode(string m, string a0, int *s, int* v)
 {
 	for (int i = 0; i < _mnemonics.size(); i++)
 	{
@@ -179,6 +195,7 @@ bool OpcodeDictionary::Get1ArgOpcode(string m, string a0, int* v)
 		{
 			if (_numArgs[i] == 1 && _arg0types[i] == ArgType::Register && _arg0strings[i] == a0)
 			{
+				*s = _sizes[i];
 				*v = _values[i];
 
 				return true;
@@ -189,7 +206,7 @@ bool OpcodeDictionary::Get1ArgOpcode(string m, string a0, int* v)
 	return false;
 }
 
-bool OpcodeDictionary::Get1ArgOpcode(string m, int a0, int* v)
+bool OpcodeDictionary::Get1ArgOpcode(string m, int a0, int *s, int* v)
 {
 	for (int i = 0; i < _mnemonics.size(); i++)
 	{
@@ -199,6 +216,7 @@ bool OpcodeDictionary::Get1ArgOpcode(string m, int a0, int* v)
 		{
 			if (_numArgs[i] == 1 && _arg0types[i] == ArgType::Numeral)
 			{
+				*s = _sizes[i];
 				*v = _values[i];
 
 				return true;
@@ -209,7 +227,7 @@ bool OpcodeDictionary::Get1ArgOpcode(string m, int a0, int* v)
 	return false;
 }
 
-bool OpcodeDictionary::Get2ArgOpcode(string m, string a0, string a1, int* v)
+bool OpcodeDictionary::Get2ArgOpcode(string m, string a0, string a1, int *s, int* v)
 {
 	for (int i = 0; i < _mnemonics.size(); i++)
 	{
@@ -220,6 +238,7 @@ bool OpcodeDictionary::Get2ArgOpcode(string m, string a0, string a1, int* v)
 			if (_numArgs[i] == 2 && _arg0types[i] == ArgType::Register && _arg0strings[i] == a0 &&
 				_arg1types[i] == ArgType::Register && _arg1strings[i] == a1)
 			{
+				*s = _sizes[i];
 				*v = _values[i];
 
 				return true;
@@ -230,7 +249,7 @@ bool OpcodeDictionary::Get2ArgOpcode(string m, string a0, string a1, int* v)
 	return false;
 }
 
-bool OpcodeDictionary::Get2ArgOpcode(string m, string a0, int a1, int* v)
+bool OpcodeDictionary::Get2ArgOpcode(string m, string a0, int a1, int *s, int* v)
 {
 	for (int i = 0; i < _mnemonics.size(); i++)
 	{
@@ -241,6 +260,7 @@ bool OpcodeDictionary::Get2ArgOpcode(string m, string a0, int a1, int* v)
 			if (_numArgs[i] == 2 && _arg0types[i] == ArgType::Register && _arg0strings[i] == a0 &&
 				_arg1types[i] == ArgType::Numeral)
 			{
+				*s = _sizes[i];
 				*v = _values[i];
 
 				return true;
@@ -251,7 +271,7 @@ bool OpcodeDictionary::Get2ArgOpcode(string m, string a0, int a1, int* v)
 	return false;
 }
 
-bool OpcodeDictionary::Get2ArgOpcode(string m, int a0, string a1, int* v)
+bool OpcodeDictionary::Get2ArgOpcode(string m, int a0, string a1, int *s, int* v)
 {
 	for (int i = 0; i < _mnemonics.size(); i++)
 	{
@@ -262,6 +282,7 @@ bool OpcodeDictionary::Get2ArgOpcode(string m, int a0, string a1, int* v)
 			if (_numArgs[i] == 2 && _arg0types[i] == ArgType::Numeral &&
 				_arg1types[i] == ArgType::Register && _arg1strings[i] == a1)
 			{
+				*s = _sizes[i];
 				*v = _values[i];
 
 				return true;

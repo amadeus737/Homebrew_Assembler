@@ -18,12 +18,12 @@ opcode_alias	8	lda #		=	$0A
 opcode_alias	8	ldb #		=	$0B
 
 ; Register transfer opcodes (x86 style)
-opcode	16	mov a, b	=	$10
-opcode	16	mov b, a	=	$15
+opcode	8	mov a, b	=	$10
+opcode	8	mov b, a	=	$15
 
 ; Register transfer opcodes (6502 style)
-opcode_alias	16	tab			=	$10
-opcode_alias	16	tba			=	$15
+opcode_alias	8	tab			=	$10
+opcode_alias	8	tba			=	$15
 
 opcode 8 mov #, a = $2E
 opcode 8 mov #, b = $2F

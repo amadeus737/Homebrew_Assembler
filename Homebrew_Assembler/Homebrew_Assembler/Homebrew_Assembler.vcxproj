@@ -145,12 +145,14 @@
     <ClCompile Include="LabelDictionary.cpp" />
     <ClCompile Include="OpcodeDictionary.cpp" />
     <ClCompile Include="Parser.cpp" />
+    <ClCompile Include="ROMData.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
     <ClInclude Include="LabelDictionary.h" />
     <ClInclude Include="OpcodeDictionary.h" />
     <ClInclude Include="Parser.h" />
+    <ClInclude Include="ROMData.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Architecture_Config\homebrew.arch" />

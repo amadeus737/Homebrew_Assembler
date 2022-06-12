@@ -1,6 +1,6 @@
-.arch "..\\Homebrew_Assembler\\Architecture_Config\\homebrew.arch"
+.arch "homebrew"
 .org 0
-.export 0 256
+.export 0 255
 
 @X $42
 
@@ -9,8 +9,6 @@
 	
 [code]:
     ; mov $42 into b
-	mov $33, X
-
 	lda X
 	nop
 	@Y $21

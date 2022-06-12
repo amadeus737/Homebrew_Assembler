@@ -4,6 +4,7 @@
 #include "Config.h"
 #include "LabelDictionary.h"
 #include "OpcodeDictionary.h"
+#include "ROMData.h"
 
 using namespace std;
 
@@ -18,7 +19,7 @@ public:
 	Parser();
 
 	void SetParseMode(ParseMode m) { _parseMode = m; }
-	void ResetParser() { _archProcessed = false; _archFile = ""; _numTokens = 0; _tokens.clear(); _lineType = LineType::None; _outMode = OutMode::None; _address = 0; _startAddress = 0; _endAddress = 0; _currTokenType = TokenType::None; };
+	void ResetParser() { _archProcessed = false; _archFile = ""; _numTokens = 0; _tokens.clear(); _lineType = LineType::None; _outMode = OutMode::None; _currTokenType = TokenType::None; };
 	void ResetForNewLine() { _numTokens = 0; _tokens.clear(); _lineType = LineType::None; }
 	void Parse(char* filename);
 	void SetOutMode(OutMode m) { _outMode = m; }
@@ -28,6 +29,7 @@ protected:
 	int ParseToken(int i);
 	void CalculateBase(int i, int* base, char** arg);
 	bool IsNumeric(char* c);
+	vector<string> SplitString(string s, string delimiter);
 
 private:
 	bool _archProcessed = false;
@@ -36,12 +38,10 @@ private:
 	ParseMode _parseMode;
 	LineType _lineType;
 	int     _numTokens;
-	vector<char*>   _tokens;
 	TokenType _currTokenType;
-	int _address;
-	int _startAddress;
-	int _endAddress;
+	vector<char*>   _tokens;
 	LabelDictionary _labelDictionary;
 	LabelDictionary _registerDictionary;
 	OpcodeDictionary _opcodeDictionary;
+	ROMData _programROM;
 };

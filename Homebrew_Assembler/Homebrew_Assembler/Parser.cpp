@@ -8,15 +8,13 @@ Parser::Parser()
 	_opcodeDictionary = OpcodeDictionary();
 	_registerDictionary = LabelDictionary(); 
 	_labelDictionary = LabelDictionary();
+	_programROM = ROMData();
 	_archProcessed = false; 
 	_archFile = ""; 
 	_numTokens = 0; 
 	_tokens.clear(); 
 	_lineType = LineType::None;
 	_outMode = OutMode::None; 
-	_address = 0; 
-	_startAddress = 0;
-	_endAddress = 0; 
 	_currTokenType = TokenType::None;
 }
 
@@ -26,7 +24,7 @@ void Parser::Parse(char* filename)
 	
 	if (_outMode == OutMode::Verbose)
 	{
-		printf(" -> Parsing: \"%s\" for %s\n", filename, _parseMode == ParseMode::Assembler ? "assembly" : "architecture configuration");
+		printf("\n -> Parsing: \"%s\" for %s\n", filename, _parseMode == ParseMode::Assembler ? "assembly" : "architecture configuration");
 	}
 
 	// Used to keep track of line that is currently being parsed
@@ -37,15 +35,6 @@ void Parser::Parse(char* filename)
 	ifstream inFile(filename);
 	if (inFile.is_open())
 	{
-		if (_parseMode == ParseMode::Assembler)
-		{
-			// Reset some variables
-			_address = 0;
-			_startAddress = 0;
-			_endAddress = 0;
-		//	_ocmnemonic = NULL;
-		}
-
 		// Initialize current token type
 		_currTokenType = TokenType::None;
 
@@ -60,14 +49,6 @@ void Parser::Parse(char* filename)
 
 			if (c_line != NULL)
 			{
-				if (_outMode == OutMode::Verbose)
-				{
-					// Echo current line to screen
-					printf("\n    -----------------------------------------------\n");
-					printf("    -> parsing line #%d: \"%s\"\n", linenum, c_line);
-					printf("    -----------------------------------------------\n");
-				}
-
 				// Parse line into tokens
 				ParseLineIntoTokens(c_line, " ,\t");
 
@@ -96,12 +77,8 @@ void Parser::Parse(char* filename)
 							_archFile = strtok((char*)nextToken.c_str(), "\"");
 
 						if (retCode == -1) printf("ERROR occurred while parsing tokens\n");
-						if (retCode == 1 && !_archProcessed) { printf("close"); inFile.close(); break; }
+						if (retCode == 1 && !_archProcessed) { inFile.close(); break; }
 					}
-				}
-				else
-				{
-					if (_outMode == OutMode::Verbose) printf("      -- No tokens were parsed.\n");
 				}
 			}
 			else
@@ -115,7 +92,27 @@ void Parser::Parse(char* filename)
 
 		if (_outMode == OutMode::Verbose && retCode != 1)
 		{
-			printf("\nDONE!\n");
+			printf("\nDONE!\n\n\n");
+		}
+
+		if (retCode == 0) 
+		{
+			_programROM.PrintList();
+			_programROM.PrintTable();
+
+			string path = "..\\Homebrew_Assembler\\ROM_Files\\";
+			string filename_s = (string)filename;
+			
+			vector<string> pathTokens = SplitString(filename_s, "\\");
+			string fileAndExtension = pathTokens[pathTokens.size()-1];
+			vector<string> fileTokens = SplitString(fileAndExtension, ".");
+			string file = fileTokens[0];
+			string extension = ".bin";
+			
+			string fullfile = path + file + extension;
+							   
+			printf("Writing ROM data to %s\n", fullfile.c_str());
+			_programROM.Write((char*)fullfile.c_str(), 32768);
 		}
 
 		// Once we reach EOF, close the file
@@ -129,11 +126,19 @@ void Parser::Parse(char* filename)
 	// If ParseToken(i) returns a 1, that means we need to further process an architecture file
 	if (retCode == 1)
 	{
-		const char* archFile = _archFile.c_str();
-		printf("opening %s for parsing syntax\n", archFile);
-		
+		string path = "..\\Homebrew_Assembler\\Architecture_Config\\";
+		string filename_s = (string)_archFile;
+
+		vector<string> pathTokens = SplitString(filename_s, "\\");
+		string fileAndExtension = pathTokens[pathTokens.size()-1];
+		vector<string> fileTokens = SplitString(fileAndExtension, ".");
+		string file = fileTokens[0];
+		string extension = ".arch";
+
+		string fullFile = path + file + extension;
+
 		// Open the architecture file for input
-		ifstream inFile2(_archFile.c_str(), ifstream::in);
+		ifstream inFile2(fullFile.c_str());
 		if (inFile2.is_open())
 		{
 			// In a file, the first line number shows as 1 so set it to 1 for reporting line numbers in errors to the user
@@ -205,7 +210,7 @@ void Parser::Parse(char* filename)
 									{
 										// Add this register to the register dictionary
 										_registerDictionary.Add(_tokens[i], cmdSize);										
-										printf("       -> Adding %d-bit register: \"%s\"\n", _registerDictionary.currValue, _registerDictionary.currLabel.c_str());
+									//	printf("       -> Adding %d-bit register: \"%s\"\n", _registerDictionary.currValue, _registerDictionary.currLabel.c_str());
 									}
 								}
 
@@ -273,15 +278,17 @@ void Parser::Parse(char* filename)
 										}
 
 										_opcodeDictionary.currValue = ocval;
+										_opcodeDictionary.currSize = cmdSize;										
 
 										int v;
+										int s;
 										if (_opcodeDictionary.currNumArgs == 0)
 										{
-											if (opcodeIsAliased || !_opcodeDictionary.Get0ArgOpcode(_opcodeDictionary.currMnemonic, &v))
+											if (opcodeIsAliased || !_opcodeDictionary.Get0ArgOpcode(_opcodeDictionary.currMnemonic, &s, &v))
 											{
 												// Here's where the opcode is actually added to the dictionary
 												_opcodeDictionary.AddCurrentEntry();
-												printf("       -> Adding %d-bit opcode%s with pattern %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
+											//	printf("       -> Adding %d-bit opcode%s with pattern %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
 											}
 											else
 											{
@@ -295,11 +302,11 @@ void Parser::Parse(char* filename)
 										{
 											if (_opcodeDictionary.currArg0type == ArgType::Register)
 											{
-												if (opcodeIsAliased || !_opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, &v))
+												if (opcodeIsAliased || !_opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, &s, &v))
 												{
 													// Here's where the opcode is actually added to the dictionary
 													_opcodeDictionary.AddCurrentEntry();
-													printf("       -> Adding %d-bit opcode%s with pattern %s %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
+												//	printf("       -> Adding %d-bit opcode%s with pattern %s %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
 												}
 												else
 												{
@@ -311,11 +318,11 @@ void Parser::Parse(char* filename)
 
 											if (_opcodeDictionary.currArg0type == ArgType::Numeral)
 											{
-												if (opcodeIsAliased || !_opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, &v))
+												if (opcodeIsAliased || !_opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, &s, &v))
 												{
 													// Here's where the opcode is actually added to the dictionary
 													_opcodeDictionary.AddCurrentEntry();
-													printf("       -> Adding %d-bit opcode%s with pattern %s # = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
+												//	printf("       -> Adding %d-bit opcode%s with pattern %s # = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
 												}
 												else
 												{
@@ -330,11 +337,11 @@ void Parser::Parse(char* filename)
 										{
 											if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Register)
 											{
-												if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1string, &v))
+												if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1string, &s, &v))
 												{
 													// Here's where the opcode is actually added to the dictionary
 													_opcodeDictionary.AddCurrentEntry();
-													printf("       -> Adding %d-bit opcode%s with pattern %s %s, %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
+												//	printf("       -> Adding %d-bit opcode%s with pattern %s %s, %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
 												}
 												else
 												{
@@ -346,11 +353,11 @@ void Parser::Parse(char* filename)
 
 											if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Numeral)
 											{
-												if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1num, &v))
+												if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1num, &s, &v))
 												{
 													// Here's where the opcode is actually added to the dictionary
 													_opcodeDictionary.AddCurrentEntry();
-													printf("       -> Adding %d-bit opcode%s with pattern %s %s, # = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
+												//	printf("       -> Adding %d-bit opcode%s with pattern %s %s, # = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
 												}
 												else
 												{
@@ -362,11 +369,11 @@ void Parser::Parse(char* filename)
 
 											if (_opcodeDictionary.currArg0type == ArgType::Numeral && _opcodeDictionary.currArg1type == ArgType::Register)
 											{
-												if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, _opcodeDictionary.currArg1string, &v))
+												if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, _opcodeDictionary.currArg1string, &s, &v))
 												{
 													// Here's where the opcode is actually added to the dictionary
 													_opcodeDictionary.AddCurrentEntry();
-													printf("       -> Adding %d-bit opcode%s with pattern %s #, %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
+												//	printf("       -> Adding %d-bit opcode%s with pattern %s #, %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
 												}
 												else
 												{
@@ -399,6 +406,7 @@ void Parser::Parse(char* filename)
 		_tokens.clear();
 
 		_archProcessed = true;
+		_parseMode = ParseMode::Assembler;
 		Parse(filename);
 	}
 }
@@ -524,8 +532,10 @@ int Parser::ParseToken(int i)
 	{
 		if (base != -1)
 		{
-			_address = stoi(arg, nullptr, base);
-			printf("      -- Address set to: %02x\n", _address);
+			int address = stoi(arg, nullptr, base);
+			//printf("      -- Address set to: %02x\n", address);
+
+			_programROM.SetCurrentAddress(address);
 
 			_currTokenType = TokenType::None;
 		}
@@ -539,8 +549,10 @@ int Parser::ParseToken(int i)
 	{
 		if (base != -1)
 		{
-			_startAddress = stoi(arg, nullptr, base);
-			printf("      -- Start Address set to: %02x\n", _startAddress);
+			int startAddress = stoi(arg, nullptr, base);
+			//printf("      -- Start Address set to: %02x\n", startAddress);
+
+			_programROM.SetStartAddress(startAddress);
 		}
 		else
 		{
@@ -551,8 +563,10 @@ int Parser::ParseToken(int i)
 
 		if (base != -1)
 		{
-			_endAddress = stoi(arg, nullptr, base);
-			printf("      -- End Address set to: %02x\n", _endAddress);
+			int endAddress = stoi(arg, nullptr, base);
+			//printf("      -- End Address set to: %02x\n", endAddress);
+
+			_programROM.SetEndAddress(endAddress);
 
 			_currTokenType = TokenType::None;
 		}
@@ -565,8 +579,11 @@ int Parser::ParseToken(int i)
 	if (_currTokenType == TokenType::Byte && strcmp(directive_parse, BYTE_STR))
 	{
 		int byteVal = stoi(arg, nullptr, base);
-		printf("      -- %02x: %02x\n", _address, byteVal);
-		_address += 8;
+		//printf("      -- %02x: %02x\n", _programROM.GetCurrentAddress(), byteVal);
+
+		_programROM.AddEntryToCurrentAddress(byteVal);
+		_programROM.SetPattern("byte def");
+		_programROM.IncrementCurrentAddress(1);
 	}
 
 	if (_currTokenType == TokenType::Ascii && strcmp(directive_parse, ASCII_STR))
@@ -576,8 +593,13 @@ int Parser::ParseToken(int i)
 		for (; *a; a++)
 		{
 			char currChar = *a != '/' ? *a : ' ';
-			printf("      -- %02x: %c (%02x)\n", _address, currChar, currChar);
-			_address += 8;
+			//printf("      -- %02x: %c (%02x)\n", _programROM.GetCurrentAddress(), currChar, currChar);
+
+			string charStr(1, currChar);
+
+			_programROM.AddEntryToCurrentAddress((int)currChar);
+			_programROM.SetPattern("ascii def: " + charStr);
+			_programROM.IncrementCurrentAddress(1);
 		}
 	}
 
@@ -588,7 +610,7 @@ int Parser::ParseToken(int i)
 			_labelDictionary.currValue = stoi(arg, nullptr, base);
 			_labelDictionary.AddCurrentEntry();
 
-			printf("      -- Symbol: %s = %02x\n", _labelDictionary.currLabel.c_str(), _labelDictionary.currValue);
+			//printf("      -- Symbol: %s = %02x\n", _labelDictionary.currLabel.c_str(), _labelDictionary.currValue);
 
 			_currTokenType = TokenType::None;
 		}
@@ -598,10 +620,10 @@ int Parser::ParseToken(int i)
 	{
 		if (base != -1)
 		{
-			_labelDictionary.currValue = _address;
+			_labelDictionary.currValue = _programROM.GetCurrentAddress();
 			_labelDictionary.AddCurrentEntry();
 
-			printf("      -- Label: %s = %02x\n", _labelDictionary.currLabel.c_str(), _labelDictionary.currValue);
+			//printf("      -- Label: %s = %02x\n", _labelDictionary.currLabel.c_str(), _labelDictionary.currValue);
 						
 			_currTokenType = TokenType::None;
 		}
@@ -697,59 +719,80 @@ int Parser::ParseToken(int i)
 			}
 		}
 
+		// TODO: Addresses are currently hard-coded to increase by 8...need to increment by actual size later!
+		// --> opcodes are corrected!
+
 		int oc_value = -1;
+		int oc_size = -1;
 		if (_opcodeDictionary.currNumArgs == 0)
 		{
-
-			if (_opcodeDictionary.Get0ArgOpcode(_opcodeDictionary.currMnemonic, &oc_value))
+			if (_opcodeDictionary.Get0ArgOpcode(_opcodeDictionary.currMnemonic, &oc_size, &oc_value))
 			{
-				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
-				_address += 8;
+				//printf("      -- %02x: %02x (%s)\n", _programROM.GetCurrentAddress(), oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_programROM.AddEntryToCurrentAddress(oc_value);
+				_programROM.SetPattern(_opcodeDictionary.currMnemonic);
+				_programROM.IncrementCurrentAddress(oc_size/8);
 			}
 		}
 
 		if (_opcodeDictionary.currNumArgs == 1)
 		{
-			if (_opcodeDictionary.currArg0type == ArgType::Numeral && _opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, &oc_value))
+			if (_opcodeDictionary.currArg0type == ArgType::Numeral && _opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, &oc_size, &oc_value))
 			{
-				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
-				_address += 8;
-				printf("      -- %02x: %02x\n", _address, _opcodeDictionary.currArg0num);
-				_address += 8;
+				//printf("      -- %02x: %02x (%s)\n", _programROM.GetCurrentAddress(), oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_programROM.AddEntryToCurrentAddress(oc_value);
+				_programROM.SetPattern(_opcodeDictionary.currMnemonic + " #");
+				_programROM.IncrementCurrentAddress(oc_size/8);
+				//printf("      -- %02x: %02x\n", _programROM.GetCurrentAddress(), _opcodeDictionary.currArg0num);
+				_programROM.AddEntryToCurrentAddress(_opcodeDictionary.currArg0num);
+				_programROM.SetPattern("#");
+				_programROM.IncrementCurrentAddress(1);
 			}
 
-			if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string, &oc_value))
+			if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string, &oc_size, &oc_value))
 			{
-				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
-				_address += 8;
+				//printf("      -- %02x: %02x (%s)\n", _programROM.GetCurrentAddress(), oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_programROM.AddEntryToCurrentAddress(oc_value);
+				_programROM.SetPattern(_opcodeDictionary.currMnemonic + " " + _opcodeDictionary.currArg0string);
+				_programROM.IncrementCurrentAddress(oc_size/8);
 			}
 		}
 
 		if (_opcodeDictionary.currNumArgs == 2)
 		{
 			if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Register &&
-				_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1string, &oc_value))
+				_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1string, &oc_size, &oc_value))
 			{
-				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
-				_address += 8;
+				//printf("      -- %02x: %02x (%s)\n", _programROM.GetCurrentAddress(), oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_programROM.AddEntryToCurrentAddress(oc_value);
+				_programROM.SetPattern(_opcodeDictionary.currMnemonic + " " + _opcodeDictionary.currArg0string + ", " + _opcodeDictionary.currArg1string);
+				_programROM.IncrementCurrentAddress(oc_size/8);
 			}
 
 			if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Numeral &&
-				_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1num, &oc_value))
+				_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1num, &oc_size, &oc_value))
 			{
-				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
-				_address += 8;
-				printf("      -- %02x: %02x\n", _address, _opcodeDictionary.currArg1num);
-				_address += 8;
+				//printf("      -- %02x: %02x (%s)\n", _programROM.GetCurrentAddress(), oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_programROM.AddEntryToCurrentAddress(oc_value);
+				_programROM.SetPattern(_opcodeDictionary.currMnemonic + " " + _opcodeDictionary.currArg0string + ", #");
+				_programROM.IncrementCurrentAddress(oc_size/8);
+				//printf("      -- %02x: %02x\n", _programROM.GetCurrentAddress(), _opcodeDictionary.currArg1num);
+				_programROM.AddEntryToCurrentAddress(_opcodeDictionary.currArg1num);
+				_programROM.SetPattern("#");
+				_programROM.IncrementCurrentAddress(1);
 			}
 
 			if (_opcodeDictionary.currArg0type == ArgType::Numeral && _opcodeDictionary.currArg1type == ArgType::Register &&
-				_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, _opcodeDictionary.currArg1string, &oc_value))
+				_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, _opcodeDictionary.currArg1string, &oc_size, &oc_value))
 			{
-				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
-				_address += 8;
-				printf("      -- %02x: %02x\n", _address, _opcodeDictionary.currArg0num);
-				_address += 8;
+				//printf("      -- %02x: %02x (%s)\n", _programROM.GetCurrentAddress(), oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_programROM.AddEntryToCurrentAddress(oc_value);
+				_programROM.SetPattern(_opcodeDictionary.currMnemonic + " #, " + _opcodeDictionary.currArg1string);
+				_programROM.IncrementCurrentAddress(oc_size/8);
+				//printf("      -- %02x: %02x\n", _programROM.GetCurrentAddress(), _opcodeDictionary.currArg0num);
+				_programROM.AddEntryToCurrentAddress(_opcodeDictionary.currArg0num);
+				_programROM.SetPattern("#");
+				_programROM.IncrementCurrentAddress(1);
 			}
 		}
 	}
@@ -811,4 +854,23 @@ bool Parser::IsNumeric(char* c)
 	}
 	
 	return false;
+}
+
+vector<string> Parser::SplitString(string s, string delimiter)
+{
+	vector<string> tokens;
+	int i = 0;
+	size_t pos = 0;
+	while ((pos = s.find(delimiter)) != string::npos)
+	{
+		tokens.push_back(s.substr(0, pos));
+		//printf("%s\n", tokens[i].c_str());
+		s.erase(0, pos + delimiter.length());
+
+		i++;
+	}
+	tokens.push_back(s);
+	//printf("%s\n", tokens[i].c_str());
+
+	return tokens;
 }

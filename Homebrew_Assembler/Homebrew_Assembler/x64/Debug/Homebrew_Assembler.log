@@ -1,6 +1,2 @@
-﻿  Homebrew_Assembler.cpp
-  OpcodeDictionary.cpp
-c:\users\c\documents\github\homebrew_assembler\homebrew_assembler\homebrew_assembler\opcodedictionary.cpp(24): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
-  Parser.cpp
-  Generating Code...
+﻿  Parser.cpp
   Homebrew_Assembler.vcxproj -> C:\Users\c\Documents\GitHub\Homebrew_Assembler\Homebrew_Assembler\x64\Debug\Homebrew_Assembler.exe
