@@ -189,7 +189,7 @@ class OpcodeDictionary
 			currValue = v;
 		}
 
-		void Add1Arg(string m, int v)
+		void Add0Arg(string m, int v)
 		{
 			mnemonics.push_back(m);
 			numArgs.push_back(0);
@@ -244,7 +244,15 @@ protected:
 	void CalculateBase(int i, int* base, char** arg);
 	bool GetLabel(char* c);
 	bool GetRegister(char* c);
+	bool Get0ArgOpcode(string m, int* v);
+	bool Get1ArgOpcode(string m, string a0, int* v);
+	bool Get1ArgOpcode(string m, int a0, int* v);
+	bool Get2ArgOpcode(string m, string a0, string a1, int* v);
+	bool Get2ArgOpcode(string m, string a0, int a1, int* v);
+	bool Get2ArgOpcode(string m, int a0, string a1, int* v);
+	bool GetOpcodeValue(int v);
 	bool IsNumeric(char* c);
+	bool IsHexLetter(const char c);
 	bool IsAMnemonic(char* c);
 
 private:
@@ -259,9 +267,6 @@ private:
 	int _address;
 	int _startAddress;
 	int _endAddress;
-	//char* _ocmnemonic;
-	bool _newOpCode;
-
 	LabelDictionary _labelDictionary;
 	LabelDictionary _registerDictionary;
 	OpcodeDictionary _opcodeDictionary;

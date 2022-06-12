@@ -17,7 +17,6 @@ Parser::Parser()
 	_address = 0; 
 	_startAddress = 0;
 	_endAddress = 0; 
-	//_ocmnemonic = NULL;
 	_currTokenType = TokenType::None;
 }
 
@@ -142,7 +141,7 @@ void Parser::Parse(char* filename)
 
 			while (getline(inFile2, line))
 			{
-				printf("Reading Line #%d: %s\n", linenum, line.c_str());
+				//printf("Reading Line #%d: %s\n", linenum, line.c_str());
 
 				// Line parse object needs to be reset for every line!
 				ResetForNewLine();
@@ -156,27 +155,35 @@ void Parser::Parse(char* filename)
 					ParseLineIntoTokens(c_line, " ,\t");
 					
 					// Initialize some values we'll need for parsing registers and opcodes
-					int regSize = -1;
+					int cmdSize = -1;
 					string ocmnemonic = "";
 					bool ocEqualProcessed = false;
+					bool opcodeIsAliased = false;
 					
 					if (_numTokens > 0)
 					{
 						// First token will indicate if the line is a register or an opcode
 						if (!strcmp(_tokens[0], "register"))	_lineType = LineType::Register;
 						if (!strcmp(_tokens[0], "opcode"))		_lineType = LineType::Opcode;
+						if (!strcmp(_tokens[0], "opcode_alias"))
+						{
+							_lineType = LineType::Opcode;
+							opcodeIsAliased = true;
+						}
 						
 						// Second token will either be register size or opcode mnemonic
-						regSize = _lineType == LineType::Register ? stoi(_tokens[1], nullptr, 10) : -1;
-						ocmnemonic = _lineType == LineType::Opcode ? _tokens[1] : "";
+						cmdSize = stoi(_tokens[1], nullptr, 10);
 
+						ocmnemonic = _lineType == LineType::Opcode ? _tokens[2] : "";
 						_opcodeDictionary.currMnemonic = ocmnemonic;
 						_opcodeDictionary.currNumArgs = 0;
+
+						int iStart = _lineType == LineType::Register ? 2 : 3;
 
 						if (_numTokens > 1)
 						{
 							// We've already processed the first two tokens...
-							for (int i = 2; i < _numTokens; i++)
+							for (int i = iStart; i < _numTokens; i++)
 							{
 								//printf("       -> Token that is being parsed: #%d \"%s\"\n", i, _tokens[i]);
 
@@ -197,7 +204,7 @@ void Parser::Parse(char* filename)
 									else
 									{
 										// Add this register to the register dictionary
-										_registerDictionary.Add(_tokens[i], regSize);										
+										_registerDictionary.Add(_tokens[i], cmdSize);										
 										printf("       -> Adding %d-bit register: \"%s\"\n", _registerDictionary.currValue, _registerDictionary.currLabel.c_str());
 									}
 								}
@@ -258,31 +265,116 @@ void Parser::Parse(char* filename)
 										
 										int ocval = stoi(arg, nullptr, base);
 
-										_opcodeDictionary.currValue = ocval;
-										_opcodeDictionary.AddCurrentEntry();
+										if (GetOpcodeValue(ocval) && !opcodeIsAliased)
+										{
+											printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
+											printf("  -> Value of \"%d\" assigned to opcode already exists! Parsing cannot continue until fixed\n", ocval);
+											return;
+										}
 
+										_opcodeDictionary.currValue = ocval;
+
+										int v;
 										if (_opcodeDictionary.currNumArgs == 0)
-											printf("       -> Adding opcode with pattern %s = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
+										{
+											if (opcodeIsAliased || !Get0ArgOpcode(_opcodeDictionary.currMnemonic, &v))
+											{
+												// Here's where the opcode is actually added to the dictionary
+												_opcodeDictionary.AddCurrentEntry();
+												printf("       -> Adding %d-bit opcode%s with pattern %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
+											}
+											else
+											{
+												printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
+												printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
+												return;
+											}
+										}																			
 
 										if (_opcodeDictionary.currNumArgs == 1)
 										{
 											if (_opcodeDictionary.currArg0type == ArgType::Register)
-												printf("       -> Adding opcode with pattern %s %s = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
+											{
+												if (opcodeIsAliased || !Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, &v))
+												{
+													// Here's where the opcode is actually added to the dictionary
+													_opcodeDictionary.AddCurrentEntry();
+													printf("       -> Adding %d-bit opcode%s with pattern %s %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
+												}
+												else
+												{
+													printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
+													printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
+													return;
+												}
+											}
 
 											if (_opcodeDictionary.currArg0type == ArgType::Numeral)
-												printf("       -> Adding opcode with pattern %s # = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
+											{
+												if (opcodeIsAliased || !Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, &v))
+												{
+													// Here's where the opcode is actually added to the dictionary
+													_opcodeDictionary.AddCurrentEntry();
+													printf("       -> Adding %d-bit opcode%s with pattern %s # = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
+												}
+												else
+												{
+													printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
+													printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
+													return;
+												}
+											}
 										}
 
 										if (_opcodeDictionary.currNumArgs == 2)
 										{
 											if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Register)
-												printf("       -> Adding opcode with pattern %s %s, %s = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
+											{
+												if (opcodeIsAliased || !Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1string, &v))
+												{
+													// Here's where the opcode is actually added to the dictionary
+													_opcodeDictionary.AddCurrentEntry();
+													printf("       -> Adding %d-bit opcode%s with pattern %s %s, %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
+												}
+												else
+												{
+													printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
+													printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
+													return;
+												}
+											}
 
 											if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Numeral)
-												printf("       -> Adding opcode with pattern %s %s, # = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
+											{
+												if (opcodeIsAliased || !Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1num, &v))
+												{
+													// Here's where the opcode is actually added to the dictionary
+													_opcodeDictionary.AddCurrentEntry();
+													printf("       -> Adding %d-bit opcode%s with pattern %s %s, # = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
+												}
+												else
+												{
+													printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
+													printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
+													return;
+												}
+											}
 
 											if (_opcodeDictionary.currArg0type == ArgType::Numeral && _opcodeDictionary.currArg1type == ArgType::Register)
-												printf("       -> Adding opcode with pattern %s #, %s = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
+											{
+												if (opcodeIsAliased || !Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, _opcodeDictionary.currArg1string, &v))
+												{
+													// Here's where the opcode is actually added to the dictionary
+													_opcodeDictionary.AddCurrentEntry();
+													printf("       -> Adding %d-bit opcode%s with pattern %s #, %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
+												}
+												else
+												{
+													printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
+													printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
+													return;
+												}
+											}
 										}
 									}
 								}
@@ -420,8 +512,6 @@ int Parser::ParseToken(int i)
 
 			_opcodeDictionary.currMnemonic = _tokens[i];
 			_opcodeDictionary.currNumArgs = 0;
-
-			_newOpCode = true;			
 		}
 	}
 
@@ -519,10 +609,8 @@ int Parser::ParseToken(int i)
 
 	if (_currTokenType == TokenType::OpCode)
 	{
-		if (strcmp(arg, _opcodeDictionary.currMnemonic.c_str()) && _newOpCode)
+		if (strcmp(arg, _opcodeDictionary.currMnemonic.c_str()))
 		{
-			_newOpCode = false;
-
 			if (IsNumeric(arg))
 			{
 				if (base != -1)
@@ -534,9 +622,6 @@ int Parser::ParseToken(int i)
 						_opcodeDictionary.currArg0type = ArgType::Numeral;
 						_opcodeDictionary.currArg0num = arg0;
 						_opcodeDictionary.currNumArgs++;
-
-						printf("      -- %02x: %02x\n", _address, arg0);
-						_address += 8;
 					}
 				}
 			}
@@ -549,8 +634,6 @@ int Parser::ParseToken(int i)
 						_opcodeDictionary.currArg0type = ArgType::Register;
 						_opcodeDictionary.currArg0string = arg;
 						_opcodeDictionary.currNumArgs++;
-
-						printf("      -- arg0 is a REGISTER %s\n", arg);
 					}
 				}
 				else
@@ -562,9 +645,6 @@ int Parser::ParseToken(int i)
 							_opcodeDictionary.currArg0type = ArgType::Numeral;
 							_opcodeDictionary.currArg0num = _labelDictionary.currValue;
 							_opcodeDictionary.currNumArgs++;
-
-							printf("      -- %02x: %02x\n", _address, _labelDictionary.currValue);
-							_address += 8;
 						}
 					}
 				}
@@ -585,9 +665,6 @@ int Parser::ParseToken(int i)
 							_opcodeDictionary.currArg1type = ArgType::Numeral;
 							_opcodeDictionary.currArg1num = arg1;
 							_opcodeDictionary.currNumArgs++;
-
-							printf("      -- %02x: %02x\n", _address, arg1);
-							_address += 8;
 						}
 					}
 				}
@@ -600,8 +677,6 @@ int Parser::ParseToken(int i)
 							_opcodeDictionary.currArg1type = ArgType::Register;
 							_opcodeDictionary.currArg1string = arg;
 							_opcodeDictionary.currNumArgs++;
-
-							printf("      -- arg1 is a REGISTER %s\n", arg);
 						}
 					}
 					else
@@ -613,9 +688,6 @@ int Parser::ParseToken(int i)
 								_opcodeDictionary.currArg1type = ArgType::Numeral;
 								_opcodeDictionary.currArg1num = _labelDictionary.currValue;
 								_opcodeDictionary.currNumArgs++;
-
-								printf("      -- %02x: %02x\n", _address, _labelDictionary.currValue);
-								_address += 8;
 							}
 						}
 					}
@@ -624,10 +696,61 @@ int Parser::ParseToken(int i)
 				}
 			}
 		}
-		else
+
+		int oc_value = -1;
+		if (_opcodeDictionary.currNumArgs == 0)
 		{
-			printf("      -- %02x: %s\n", _address, _opcodeDictionary.currMnemonic.c_str());
-			_address += 8;
+
+			if (Get0ArgOpcode(_opcodeDictionary.currMnemonic, &oc_value))
+			{
+				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_address += 8;
+			}
+		}
+
+		if (_opcodeDictionary.currNumArgs == 1)
+		{
+			if (_opcodeDictionary.currArg0type == ArgType::Numeral && Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, &oc_value))
+			{
+				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_address += 8;
+				printf("      -- %02x: %02x\n", _address, _opcodeDictionary.currArg0num);
+				_address += 8;
+			}
+
+			if (_opcodeDictionary.currArg0type == ArgType::Register && Get1ArgOpcode(_opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string, &oc_value))
+			{
+				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_address += 8;
+			}
+		}
+
+		if (_opcodeDictionary.currNumArgs == 2)
+		{
+			if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Register &&
+				Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1string, &oc_value))
+			{
+				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_address += 8;
+			}
+
+			if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Numeral &&
+				Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1num, &oc_value))
+			{
+				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_address += 8;
+				printf("      -- %02x: %02x\n", _address, _opcodeDictionary.currArg1num);
+				_address += 8;
+			}
+
+			if (_opcodeDictionary.currArg0type == ArgType::Numeral && _opcodeDictionary.currArg1type == ArgType::Register &&
+				Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, _opcodeDictionary.currArg1string, &oc_value))
+			{
+				printf("      -- %02x: %02x (%s)\n", _address, oc_value, _opcodeDictionary.currMnemonic.c_str());
+				_address += 8;
+				printf("      -- %02x: %02x\n", _address, _opcodeDictionary.currArg0num);
+				_address += 8;
+			}
 		}
 	}
 
@@ -666,14 +789,10 @@ void Parser::CalculateBase(int i, int* base, char** arg)
 
 bool Parser::GetLabel(char* c)
 {
-	//printf("c is %s\n", c);
 	for (int i = 0; i < _labelDictionary.NumLabels(); i++)
 	{
-		//printf("checking label -- %s\n", _labelDictionary.GetLabel(i).c_str());
 		const char* lbl = _labelDictionary.labels[i].c_str();
 		
-		//printf("lbl %s\n", _labelDictionary.GetLabel(i).c_str());
-
 		if (!strcmp(c,  lbl))
 		{
 			_labelDictionary.currLabel = lbl;
@@ -688,10 +807,8 @@ bool Parser::GetLabel(char* c)
 
 bool Parser::GetRegister(char* c)
 {
-	//printf("c is %s\n", c);
 	for (int i = 0; i < _registerDictionary.NumLabels(); i++)
 	{
-		//printf("checking label -- %s\n", labels[i].c_str());
 		const char* reg = _registerDictionary.labels[i].c_str();
 		
 		if (!strcmp(c, reg))
@@ -706,22 +823,178 @@ bool Parser::GetRegister(char* c)
 	return false;
 }
 
-bool Parser::IsNumeric(char* c)
+bool Parser::Get0ArgOpcode(string m, int* v)
 {
-	bool number = false;
-
-	// Test if equal to 0-9
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < _opcodeDictionary.NumOpcodes(); i++)
 	{
-		number = number || !strcmp(c, to_string(i).c_str());
+		string mnemonic = _opcodeDictionary.mnemonics[i];
+
+		if (m == mnemonic)
+		{
+			if (_opcodeDictionary.numArgs[i] == 0)
+			{
+				*v = _opcodeDictionary.values[i];
+
+				return true;
+			}
+		}
 	}
 
-	// Also need to test for number type prefixes
-	number = number || !strcmp(c, BIN_KEY);
-	number = number || !strcmp(c, HEX_KEY);
-	number = number || !strcmp(c, DEC_KEY);
+	return false;
+}
 
-	return number;
+bool Parser::Get1ArgOpcode(string m, string a0, int* v)
+{
+	for (int i = 0; i < _opcodeDictionary.NumOpcodes(); i++)
+	{
+		string mnemonic = _opcodeDictionary.mnemonics[i];
+
+		if (m == mnemonic)
+		{
+			if (_opcodeDictionary.numArgs[i] == 1 && _opcodeDictionary.arg0types[i] == ArgType::Register && _opcodeDictionary.arg0strings[i] == a0)
+			{
+				*v = _opcodeDictionary.values[i];
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool Parser::Get1ArgOpcode(string m, int a0, int* v)
+{
+	for (int i = 0; i < _opcodeDictionary.NumOpcodes(); i++)
+	{
+		string mnemonic = _opcodeDictionary.mnemonics[i];
+
+		if (m == mnemonic)
+		{
+			if (_opcodeDictionary.numArgs[i] == 1 && _opcodeDictionary.arg0types[i] == ArgType::Numeral)
+			{
+				*v = _opcodeDictionary.values[i];
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool Parser::Get2ArgOpcode(string m, string a0, string a1, int* v)
+{
+	for (int i = 0; i < _opcodeDictionary.NumOpcodes(); i++)
+	{
+		string mnemonic = _opcodeDictionary.mnemonics[i];
+
+		if (m == mnemonic)
+		{
+			if (_opcodeDictionary.numArgs[i] == 2 && _opcodeDictionary.arg0types[i] == ArgType::Register && _opcodeDictionary.arg0strings[i] == a0 &&
+			    _opcodeDictionary.arg1types[i] == ArgType::Register && _opcodeDictionary.arg1strings[i] == a1)
+			{
+				*v = _opcodeDictionary.values[i];
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool Parser::Get2ArgOpcode(string m, string a0, int a1, int* v)
+{
+	for (int i = 0; i < _opcodeDictionary.NumOpcodes(); i++)
+	{
+		string mnemonic = _opcodeDictionary.mnemonics[i];
+
+		if (m == mnemonic)
+		{
+			if (_opcodeDictionary.numArgs[i] == 2 && _opcodeDictionary.arg0types[i] == ArgType::Register && _opcodeDictionary.arg0strings[i] == a0 &&
+				_opcodeDictionary.arg1types[i] == ArgType::Numeral)
+			{
+				*v = _opcodeDictionary.values[i];
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool Parser::Get2ArgOpcode(string m, int a0, string a1, int* v)
+{
+	for (int i = 0; i < _opcodeDictionary.NumOpcodes(); i++)
+	{
+		string mnemonic = _opcodeDictionary.mnemonics[i];
+
+		if (m == mnemonic)
+		{
+			if (_opcodeDictionary.numArgs[i] == 2 && _opcodeDictionary.arg0types[i] == ArgType::Numeral &&
+				_opcodeDictionary.arg1types[i] == ArgType::Register && _opcodeDictionary.arg1strings[i] == a1)
+			{
+				*v = _opcodeDictionary.values[i];
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool Parser::GetOpcodeValue(int v)
+{
+	for (int i = 0; i < _opcodeDictionary.NumOpcodes(); i++)
+	{
+		if (_opcodeDictionary.values[i] == v)
+		{
+			return true;		
+		}
+	}
+
+	return false;
+}
+
+bool Parser::IsNumeric(char* c)
+{
+	bool digit = false;
+
+	for (; *c; c++)
+	{
+		if (*c == BIN_KEY[0] || *c == HEX_KEY[0] || *c == DEC_KEY[0])
+			return true;
+
+		// Test if equal to 0-9
+		for (int j = 0; j < 10; j++)
+		{
+			char loopChar = to_string(j).c_str()[0];
+
+			digit = *c == loopChar;
+						
+			if (digit) 
+			{
+				return true;
+			}
+		}
+	}
+	
+	return false;
+}
+
+bool Parser::IsHexLetter(const char c)
+{
+	switch (c)
+	{
+		case 'a' || 'A' || 'b' || 'B' || 'c' || 'C' || 'd' || 'D' || 'e' || 'E' || 'f' || 'F':
+			printf("IS IT\n");
+			return true;
+	}
+
+	return false;
 }
 
 bool Parser::IsAMnemonic(char* c)
