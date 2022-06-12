@@ -37,11 +37,11 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Assembly Code\demo.asm">
-      <Filter>Code</Filter>
-    </None>
-    <None Include="Architecture Config\homebrew.arch">
+    <Text Include="Architecture Config\homebrew.arch">
       <Filter>Architecture</Filter>
-    </None>
+    </Text>
+    <Text Include="Assembly Code\demo.asm">
+      <Filter>Code</Filter>
+    </Text>
   </ItemGroup>
 </Project>

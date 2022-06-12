@@ -1,2 +1,4 @@
-﻿  Homebrew_Assembler.cpp
+﻿  Parser.cpp
+c:\users\c\documents\github\homebrew_assembler\homebrew_assembler\homebrew_assembler\parser.h(34): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+c:\users\c\documents\github\homebrew_assembler\homebrew_assembler\homebrew_assembler\parser.h(83): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
   Homebrew_Assembler.vcxproj -> C:\Users\c\Documents\GitHub\Homebrew_Assembler\Homebrew_Assembler\x64\Debug\Homebrew_Assembler.exe

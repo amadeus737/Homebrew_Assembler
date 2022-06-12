@@ -29,11 +29,13 @@ int main(int argc, char** argv)
 		{
 			// Otherwise, use the file provided by the user
 			char* filename = argv[1];
+			printf("File %s\n", filename);
 		}
 
 		// While in development, I'll keep console printing to verbose so that we can keep an eye
 		// on the inner-workings of the assembler
-		parser.SetMode(Mode::Verbose);
+		parser.SetParseMode(ParseMode::Architecture);
+		parser.SetOutMode(OutMode::Verbose);
 
 		// Initiate parsing of file
 		parser.Parse(filename);

@@ -1,86 +1,120 @@
+#include "Parser.h"
 #include <string>
 #include <fstream>
-#include "Parser.h"
-#include "Config.h"
+#include <iostream>
+
+Parser::Parser()
+{
+	_opcodeDictionary = OpcodeDictionary();
+	_registerDictionary = LabelDictionary(); 
+	_labelDictionary = LabelDictionary();
+	_archProcessed = false; 
+	_archFile = ""; 
+	_numTokens = 0; 
+	_tokens.clear(); 
+	_lineType = LineType::None;
+	_outMode = OutMode::None; 
+	_address = 0; 
+	_startAddress = 0;
+	_endAddress = 0; 
+	//_ocmnemonic = NULL;
+	_currTokenType = TokenType::None;
+}
 
 void Parser::Parse(char* filename)
 {
-	if (_mode == Mode::Verbose)
+	int retCode = -1;
+	
+	if (_outMode == OutMode::Verbose)
 	{
-		printf(" -> Parsing file: \"%s\"\n", filename);
+		printf(" -> Parsing: \"%s\" for %s\n", filename, _parseMode == ParseMode::Assembler ? "assembly" : "architecture configuration");
 	}
 
 	// Used to keep track of line that is currently being parsed
 	int linenum = 0;
-
-	// Holds currently parsed line
 	string line;
 
 	// Open the file for input
 	ifstream inFile(filename);
 	if (inFile.is_open())
 	{
-		// Reset some variables
-		_address = 0;
-		_startAddress = 0;
-		_endAddress = 0;
-		_ocmnemonic = NULL;
+		if (_parseMode == ParseMode::Assembler)
+		{
+			// Reset some variables
+			_address = 0;
+			_startAddress = 0;
+			_endAddress = 0;
+		//	_ocmnemonic = NULL;
+		}
+
+		// Initialize current token type
 		_currTokenType = TokenType::None;
 
-		// Being phase 0 of parsing (file -> lines)
 		// Pull in each line individually...will repeat until EOF
 		while (getline(inFile, line))
 		{
 			// Line parse object needs to be reset for every line!
-			Reset();
+			ResetForNewLine();
 
 			// Convert the line that was pulled in into an array of characters
 			const char* c_line = line.c_str();
 
 			if (c_line != NULL)
 			{
-				if (_mode == Mode::Verbose)
+				if (_outMode == OutMode::Verbose)
 				{
 					// Echo current line to screen
-					printf("\n    ------------------------------------------\n");
-					printf("    -> parsing line #%d \"%s\"\n", linenum, c_line);
-					printf("    ------------------------------------------\n");
+					printf("\n    -----------------------------------------------\n");
+					printf("    -> parsing line #%d: \"%s\"\n", linenum, c_line);
+					printf("    -----------------------------------------------\n");
 				}
 
-				// Phase 1 of parsing (line -> tokens)
+				// Parse line into tokens
 				ParseLineIntoTokens(c_line, " ,\t");
-				
-				// If there are actually tokens to parse...
+
 				if (_numTokens > 0)
 				{
-					// Loop over all tokens in the line
+					char* label = NULL;
+					TokenType tokenType = TokenType::None;
 					for (int i = 0; i < _numTokens; i++)
 					{
-						if (_mode == Mode::Verbose)
+						if (_outMode == OutMode::Verbose)
 						{
 							// Echo current token to screen
-							//	printf("       -> Token that is being parsed: #%d \"%s\"\n", i, _tokens[i]);
+							//printf("       -> Token that is being parsed: #%d \"%s\"\n", i, _tokens[i]);
 						}
 
+						string currToken = _tokens[i];
+						string nextToken;
+
+						if (i + 1 < _numTokens)
+							nextToken = _tokens[i + 1];
+
 						// Parse token i
-						ParseToken(i);
+						retCode = ParseToken(i);
+
+						if (retCode == 1)
+							_archFile = strtok((char*)nextToken.c_str(), "\"");
+
+						if (retCode == -1) printf("ERROR occurred while parsing tokens\n");
+						if (retCode == 1 && !_archProcessed) { printf("close"); inFile.close(); break; }
 					}
 				}
 				else
 				{
-					if (_mode == Mode::Verbose) printf("      -- No tokens were parsed.\n");
+					if (_outMode == OutMode::Verbose) printf("      -- No tokens were parsed.\n");
 				}
 			}
 			else
 			{
-				if (_mode == Mode::Verbose) printf("      -- Line not parsed because it was null.\n");
+				if (_outMode == OutMode::Verbose) printf("      -- Line not parsed because it was null.\n");
 			}
 
 			// Increase line number
 			linenum++;
 		}
 
-		if (_mode == Mode::Verbose)
+		if (_outMode == OutMode::Verbose && retCode != 1)
 		{
 			printf("\nDONE!\n");
 		}
@@ -92,17 +126,198 @@ void Parser::Parse(char* filename)
 	{
 		printf("Unable to open file!\n");
 	}
+
+	// If ParseToken(i) returns a 1, that means we need to further process an architecture file
+	if (retCode == 1)
+	{
+		const char* archFile = _archFile.c_str();
+		printf("opening %s for parsing syntax\n", archFile);
+		
+		// Open the architecture file for input
+		ifstream inFile2(_archFile.c_str(), ifstream::in);
+		if (inFile2.is_open())
+		{
+			// In a file, the first line number shows as 1 so set it to 1 for reporting line numbers in errors to the user
+			linenum = 1;
+
+			while (getline(inFile2, line))
+			{
+				printf("Reading Line #%d: %s\n", linenum, line.c_str());
+
+				// Line parse object needs to be reset for every line!
+				ResetForNewLine();
+
+				// Convert the line that was pulled in into an array of characters
+				const char* c_line = line.c_str();
+				
+				if (c_line != NULL)
+				{
+					// Parse line into tokens
+					ParseLineIntoTokens(c_line, " ,\t");
+					
+					// Initialize some values we'll need for parsing registers and opcodes
+					int regSize = -1;
+					string ocmnemonic = "";
+					bool ocEqualProcessed = false;
+					
+					if (_numTokens > 0)
+					{
+						// First token will indicate if the line is a register or an opcode
+						if (!strcmp(_tokens[0], "register"))	_lineType = LineType::Register;
+						if (!strcmp(_tokens[0], "opcode"))		_lineType = LineType::Opcode;
+						
+						// Second token will either be register size or opcode mnemonic
+						regSize = _lineType == LineType::Register ? stoi(_tokens[1], nullptr, 10) : -1;
+						ocmnemonic = _lineType == LineType::Opcode ? _tokens[1] : "";
+
+						_opcodeDictionary.currMnemonic = ocmnemonic;
+						_opcodeDictionary.currNumArgs = 0;
+
+						if (_numTokens > 1)
+						{
+							// We've already processed the first two tokens...
+							for (int i = 2; i < _numTokens; i++)
+							{
+								//printf("       -> Token that is being parsed: #%d \"%s\"\n", i, _tokens[i]);
+
+								// If this is a register line, we need to add these registers to the register dictionary
+								if (_lineType == LineType::Register)
+								{
+									// Skip parsing equal signs
+									if (!strcmp(_tokens[i], "=")) continue;
+
+									// If arch file was correctly typed, anything token at this point should be the label of a new register.
+									// So, let's add it to the register dictionary. Throw an error if register has already been added.
+									if (GetRegister((char*)_tokens[i]))
+									{
+										printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
+										printf("  -> Register \"%s\" already defined! Parsing cannot continue until fixed\n", _tokens[i]);
+										return;
+									}
+									else
+									{
+										// Add this register to the register dictionary
+										_registerDictionary.Add(_tokens[i], regSize);										
+										printf("       -> Adding %d-bit register: \"%s\"\n", _registerDictionary.currValue, _registerDictionary.currLabel.c_str());
+									}
+								}
+
+								if (_lineType == LineType::Opcode)
+								{
+									if (!strcmp(_tokens[i], "="))
+									{
+										ocEqualProcessed = true;
+										continue;
+									}
+
+									// If we haven't yet read an equal sign, then the tokens correspond to the opcode definition.
+									// If we have read the equal sign, then the token is the opcode value.
+									if (!ocEqualProcessed)
+									{
+										// See if the argument is a register
+										if (GetRegister(_tokens[i]))
+										{
+											if (_opcodeDictionary.currNumArgs == 0)
+											{	
+												_opcodeDictionary.currArg0type = ArgType::Register;
+												_opcodeDictionary.currArg0string = _tokens[i];
+												_opcodeDictionary.currNumArgs++;
+											}
+											else
+											{												
+												_opcodeDictionary.currArg1type = ArgType::Register;
+												_opcodeDictionary.currArg1string = _tokens[i];
+												_opcodeDictionary.currNumArgs++;
+											}
+										}
+										else if (!strcmp(_tokens[i], "#"))
+										{
+											if (_opcodeDictionary.currNumArgs == 0)
+											{
+												_opcodeDictionary.currArg0type = ArgType::Numeral;
+												_opcodeDictionary.currNumArgs++;
+											}
+											else
+											{
+												_opcodeDictionary.currArg1type = ArgType::Numeral;
+												_opcodeDictionary.currNumArgs++;
+											}
+										}
+										else
+										{
+											printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
+											printf("  -> Unknown opcode argument \"%s\"! Parsing cannot continue until fixed\n", _tokens[i]);
+											return;
+										}
+									}
+									else
+									{
+										int base;
+										char* arg;
+										CalculateBase(i, &base, &arg);
+										
+										int ocval = stoi(arg, nullptr, base);
+
+										_opcodeDictionary.currValue = ocval;
+										_opcodeDictionary.AddCurrentEntry();
+
+										if (_opcodeDictionary.currNumArgs == 0)
+											printf("       -> Adding opcode with pattern %s = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
+
+										if (_opcodeDictionary.currNumArgs == 1)
+										{
+											if (_opcodeDictionary.currArg0type == ArgType::Register)
+												printf("       -> Adding opcode with pattern %s %s = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
+
+											if (_opcodeDictionary.currArg0type == ArgType::Numeral)
+												printf("       -> Adding opcode with pattern %s # = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
+										}
+
+										if (_opcodeDictionary.currNumArgs == 2)
+										{
+											if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Register)
+												printf("       -> Adding opcode with pattern %s %s, %s = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
+
+											if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Numeral)
+												printf("       -> Adding opcode with pattern %s %s, # = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
+
+											if (_opcodeDictionary.currArg0type == ArgType::Numeral && _opcodeDictionary.currArg1type == ArgType::Register)
+												printf("       -> Adding opcode with pattern %s #, %s = %02x\n", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				linenum++;
+			}
+
+			// Once we reach EOF, close the file
+			inFile2.close();
+		}
+		else
+		{
+			printf("Could not open architecture file!\n");
+		}
+		
+		// Still need to assemble program, so do that now
+		_numTokens = 0;
+		_tokens.clear();
+
+		_archProcessed = true;
+		Parse(filename);
+	}
 }
 
 void Parser::ParseLineIntoTokens(const char* line, const char* delimiters)
 {
 	// Parse line into tokens by splitting on spaces, tabs, and commas
+	// This command actually only performs one split...hence the while loop below
 	char* tokens = strtok((char*)line, delimiters);
-
-	// Add the parsed tokens to _tokens vector
 	_tokens.push_back(tokens);
 
-	// Handle blank and comment lines
 	if (tokens == NULL)
 	{
 		_lineType = LineType::Blank;
@@ -113,9 +328,19 @@ void Parser::ParseLineIntoTokens(const char* line, const char* delimiters)
 	}
 	else
 	{
-		// Handle directive, symbol, label, and opcode tokens
 		switch (tokens[0])
 		{
+			case '*':
+				if (!_archProcessed)
+					_lineType = LineType::File;
+				else
+				{
+					printf("      -- Arch File already processed -- Treating as a blank line!\n");
+					_lineType = LineType::Blank;
+				}
+
+				break;
+
 			case DIRECTIVE_KEYS[0]:
 				_lineType = LineType::Directive;
 				break;
@@ -136,102 +361,82 @@ void Parser::ParseLineIntoTokens(const char* line, const char* delimiters)
 		// Continue splitting on the specified delimiters until none remain (i.e., NULL is returned)
 		while (tokens != NULL)
 		{
-			// Perform another split
+			// Print token out to the screen and perform another split
 			_numTokens++;
 			tokens = strtok(NULL, delimiters);
 
-			// Add to _tokens vector
 			_tokens.push_back(tokens);
 		}
 	}
 }
 
-void Parser::ParseToken(int i)
+int Parser::ParseToken(int i)
 {
-	if (i >= _numTokens) return;
+	if (i >= _numTokens) return -1;
 
-	// Test-parse each token with DIRECTIVE_KEYS, SYMBOL_KEYS, and LABEL_KEYS
 	char* directive_parse = strtok(_tokens[i], DIRECTIVE_KEYS);
 	char* symbol_parse = strtok(_tokens[i], SYMBOL_KEYS);
 	char* label_parse = strtok(_tokens[i], LABEL_KEYS);
 
-	// Note: strcmp is a little confusing because it actually returns an integral value. 0 is returned if the strings
-	// match, which would be interpreted as a logical false in an if statement. For that reason, !strcmp() is typically
-	// used where you would probably expect to see just strcmp().
-
-	if (!strcmp(directive_parse, ORIGIN_STR))
+	if (!strcmp(directive_parse, ARCH_STR))
 	{
-		// If the test-parse of the token with the DIRECTIVE_KEYS results in ORIGIN_STR, set _currTokenType to origin
-		// so that it can be further processed
+		_currTokenType = TokenType::Architecture;
+
+		return 1;
+	}
+	else if (!strcmp(directive_parse, ORIGIN_STR))
+	{
 		_currTokenType = TokenType::Origin;
 	}
 	else if (!strcmp(directive_parse, EXPORT_STR))
 	{
-		// If the test-parse of the token with the DIRECTIVE_KEYS results in EXPORT_STR, set _currTokenType to export
-		// so that it can be further processed
 		_currTokenType = TokenType::Export;
+	}
+	else if (!strcmp(directive_parse, BYTE_STR))
+	{
+		_currTokenType = TokenType::Byte;
+	}
+	else if (!strcmp(directive_parse, ASCII_STR))
+	{
+		_currTokenType = TokenType::Ascii;
 	}
 	else if (strcmp(symbol_parse, _tokens[i]))
 	{
-		// If the test-parse of the token with the SYMBOL_KEYS does not match the pre-parsed string (_tokens[i]), then
-		// that means it was successfully parsed
 		_currTokenType = TokenType::Symbol;
-
-		// Store the parsed symbol in the label dictionary
-		_labelCount++;
-		_label = symbol_parse;
-		_labels[_labelCount] = _label;
+		_labelDictionary.currLabel = symbol_parse;
 	}
 	else if (strcmp(label_parse, _tokens[i]))
 	{
-		// If the test-parse of the token with the LABEL_KEYS does not match the pre-parsed string (_tokens[i]), then
-		// that means it was successfully parsed
 		_currTokenType = TokenType::Label;
-
-		// Store the parsed label in the label dictionary
-		_labelCount++;
-		_label = label_parse;
-		_labels[_labelCount] = _label;
+		_labelDictionary.currLabel = label_parse;
 	}
 
+	// Only other token type to process is an OpCode!
 	if (_lineType == LineType::OpCode)
 	{
-		// If the current token being parsed is an opcode mnemonic...
 		if (IsAMnemonic(_tokens[i]))
 		{
-			// Store the current token type as opcode for further processing
 			_currTokenType = TokenType::OpCode;
 
-			// Store the opcode mnemonic and set the new opcode flag
-			_ocmnemonic = _tokens[i];
-			_newOpCode = true;
+			_opcodeDictionary.currMnemonic = _tokens[i];
+			_opcodeDictionary.currNumArgs = 0;
 
-			// Print the address of this opcode mnemonic
-			printf("      -- %02x : %s\n", _address, _ocmnemonic);
-
-			// Later, replace with actual size of opcode
-			// For now, just assume each opcode is 8 bits wide
-			_address += 8;
+			_newOpCode = true;			
 		}
 	}
 
-	// Calculate base and return modified token
 	int base = -1;
 	char* arg = _tokens[i];
+
 	CalculateBase(i, &base, &arg);
 
-	// If the current token type is origin directive and directive_parse is NOT ORIGIN_STR, then we 
-	// are parsing the argument of the origin directive
 	if (_currTokenType == TokenType::Origin && strcmp(directive_parse, ORIGIN_STR))
 	{
-		// If we have a valid base for a numerical argument
 		if (base != -1)
 		{
-			// Convert the parsed token to an address based on the base
 			_address = stoi(arg, nullptr, base);
-			printf("      -- Address set to: %x\n", _address);
+			printf("      -- Address set to: %02x\n", _address);
 
-			// Clear current token type since we are done processing a complete origin directive command
 			_currTokenType = TokenType::None;
 		}
 		else
@@ -240,32 +445,25 @@ void Parser::ParseToken(int i)
 		}
 	}
 
-	// If the current token type is export directive and directive_parse is NOT EXPORT_STR, then we 
-	// are parsing the arguments of the export directive
 	if (_currTokenType == TokenType::Export && strcmp(directive_parse, EXPORT_STR))
 	{
-		// If we have a valid base for a numerical argument
 		if (base != -1)
 		{
-			// Convert the parsed token to a start export address based on the base
 			_startAddress = stoi(arg, nullptr, base);
-			printf("      -- Start Address set to: %x\n", _startAddress);
+			printf("      -- Start Address set to: %02x\n", _startAddress);
 		}
 		else
 		{
 			printf("      -- ERROR occurred in parsing argument for EXPORT directive\n");
 		}
 
-		// Calculate base and return modified token for next token (i+1)
 		CalculateBase(i + 1, &base, &arg);
 
 		if (base != -1)
 		{
-			// Convert the parsed token to a end export address based on the base
 			_endAddress = stoi(arg, nullptr, base);
-			printf("      -- End Address set to: %x\n", _endAddress);
+			printf("      -- End Address set to: %02x\n", _endAddress);
 
-			// Clear current token type since we are done processing a complete export directive command
 			_currTokenType = TokenType::None;
 		}
 		else
@@ -274,144 +472,190 @@ void Parser::ParseToken(int i)
 		}
 	}
 
-	// If the current token type is symbol and symbol_parse is NOT equal to the pre-parsed token, then we
-	// are parsing the arguments of the symbol
+	if (_currTokenType == TokenType::Byte && strcmp(directive_parse, BYTE_STR))
+	{
+		int byteVal = stoi(arg, nullptr, base);
+		printf("      -- %02x: %02x\n", _address, byteVal);
+		_address += 8;
+	}
+
+	if (_currTokenType == TokenType::Ascii && strcmp(directive_parse, ASCII_STR))
+	{
+		char* a = strtok(_tokens[i], "\"");
+
+		for (; *a; a++)
+		{
+			char currChar = *a != '/' ? *a : ' ';
+			printf("      -- %02x: %c (%02x)\n", _address, currChar, currChar);
+			_address += 8;
+		}
+	}
+
 	if (_currTokenType == TokenType::Symbol && !strcmp(symbol_parse, _tokens[i]))
 	{
-		// If we have a valid numerical base
 		if (base != -1)
-		{
-			// Convert the parsed token (arg) to a replacement value based on the numerical base
-			int replacementValue = stoi(arg, nullptr, base);
-			printf("      -- Symbol: %s = %x\n", _label.c_str(), replacementValue);
+		{		
+			_labelDictionary.currValue = stoi(arg, nullptr, base);
+			_labelDictionary.AddCurrentEntry();
 
-			// Store the replacement value in the replacement value vector
-			_replacementValues[_labelCount] = replacementValue;
+			printf("      -- Symbol: %s = %02x\n", _labelDictionary.currLabel.c_str(), _labelDictionary.currValue);
 
-			// Clear current token type since we are done processing a complete symbol command
 			_currTokenType = TokenType::None;
 		}
 	}
 
-	// If the current token type is label (no arguments)
 	if (_currTokenType == TokenType::Label)
 	{
 		if (base != -1)
 		{
-			// Save address to label
-			int replacementValue = _address;
-			printf("      -- Label: %s = %x\n", _label.c_str(), replacementValue);
+			_labelDictionary.currValue = _address;
+			_labelDictionary.AddCurrentEntry();
 
-			// Store address in replacement value vector
-			_replacementValues[_labelCount] = replacementValue;
-
-			// Clear current token type since we are done processing a complete label command
+			printf("      -- Label: %s = %02x\n", _labelDictionary.currLabel.c_str(), _labelDictionary.currValue);
+						
 			_currTokenType = TokenType::None;
 		}
 	}
 
-	// Handle opcodes
 	if (_currTokenType == TokenType::OpCode)
 	{
-		// If we are parsing an opcode argument, arg != _ocmnemonic
-		if (strcmp(arg, _ocmnemonic) && _newOpCode)
+		if (strcmp(arg, _opcodeDictionary.currMnemonic.c_str()) && _newOpCode)
 		{
-			// New opcode flag meant to only trigger this code block once
 			_newOpCode = false;
 
-			if (i < _numTokens)
+			if (IsNumeric(arg))
 			{
-				// If the argument is a number
-				if (IsNumeric(arg))
+				if (base != -1)
 				{
-					if (base != -1)
-					{
-						// Convert parsed token to integer via the base
-						int arg0 = stoi(arg, nullptr, base);
-						printf("      -- %02x : %02x\n", _address, arg0);
+					int arg0 = stoi(arg, nullptr, base);
 
-						// Increment address by 8 bytes (change later if needed)
+					if (_opcodeDictionary.currNumArgs == 0)
+					{
+						_opcodeDictionary.currArg0type = ArgType::Numeral;
+						_opcodeDictionary.currArg0num = arg0;
+						_opcodeDictionary.currNumArgs++;
+
+						printf("      -- %02x: %02x\n", _address, arg0);
 						_address += 8;
+					}
+				}
+			}
+			else
+			{
+				if (GetRegister(arg))
+				{
+					if (_opcodeDictionary.currNumArgs == 0)
+					{
+						_opcodeDictionary.currArg0type = ArgType::Register;
+						_opcodeDictionary.currArg0string = arg;
+						_opcodeDictionary.currNumArgs++;
+
+						printf("      -- arg0 is a REGISTER %s\n", arg);
 					}
 				}
 				else
 				{
-					// If the argument is a label in the label dictionary...
 					if (GetLabel(arg))
 					{
-						printf("      -- %02x : %02x\n", _address, _replacementValue);
-
-						// Increment address by 8 bytes (change later if needed)
-						_address += 8;
-					}
-				}
-
-				if (i + 1 < _numTokens)
-				{
-					// Process next argument, if present
-					CalculateBase(i + 1, &base, &arg);
-
-					// Handle numerical argument
-					if (IsNumeric(arg))
-					{
-						if (base != -1)
+						if (_opcodeDictionary.currNumArgs == 0)
 						{
-							// Convert parsed token to integer via the base
-							int arg1 = stoi(arg, nullptr, base);
-							printf("      -- %02x : %02x\n", _address, arg1);
+							_opcodeDictionary.currArg0type = ArgType::Numeral;
+							_opcodeDictionary.currArg0num = _labelDictionary.currValue;
+							_opcodeDictionary.currNumArgs++;
 
-							// Increment address by 8 bytes (change later if needed)
+							printf("      -- %02x: %02x\n", _address, _labelDictionary.currValue);
 							_address += 8;
-						}
-					}
-					else
-					{
-						// If the argument is a label in the label dictionary...
-						if (GetLabel(arg))
-						{
-							printf("      -- %02x : %02x\n", _address, _replacementValue);
-
-							// Increment address by 8 bytes (change later if needed)
-							_address += 8;
-
-							// Clear token type since we've processed a complete opcode command
-							_currTokenType = TokenType::None;
 						}
 					}
 				}
 			}
+
+			if (i + 1 < _numTokens)
+			{
+				CalculateBase(i + 1, &base, &arg);
+
+				if (IsNumeric(arg))
+				{
+					if (base != -1)
+					{
+						int arg1 = stoi(arg, nullptr, base);
+
+						if (_opcodeDictionary.currNumArgs > 0)
+						{
+							_opcodeDictionary.currArg1type = ArgType::Numeral;
+							_opcodeDictionary.currArg1num = arg1;
+							_opcodeDictionary.currNumArgs++;
+
+							printf("      -- %02x: %02x\n", _address, arg1);
+							_address += 8;
+						}
+					}
+				}
+				else
+				{
+					if (GetRegister(arg))
+					{
+						if (_opcodeDictionary.currNumArgs > 0)
+						{
+							_opcodeDictionary.currArg1type = ArgType::Register;
+							_opcodeDictionary.currArg1string = arg;
+							_opcodeDictionary.currNumArgs++;
+
+							printf("      -- arg1 is a REGISTER %s\n", arg);
+						}
+					}
+					else
+					{
+						if (GetLabel(arg))
+						{
+							if (_opcodeDictionary.currNumArgs > 0)
+							{
+								_opcodeDictionary.currArg1type = ArgType::Numeral;
+								_opcodeDictionary.currArg1num = _labelDictionary.currValue;
+								_opcodeDictionary.currNumArgs++;
+
+								printf("      -- %02x: %02x\n", _address, _labelDictionary.currValue);
+								_address += 8;
+							}
+						}
+					}
+
+					_currTokenType = TokenType::None;
+				}
+			}
+		}
+		else
+		{
+			printf("      -- %02x: %s\n", _address, _opcodeDictionary.currMnemonic.c_str());
+			_address += 8;
 		}
 	}
+
+	return 0;
 }
 
 void Parser::CalculateBase(int i, int* base, char** arg)
 {
-	// Initialize return values
 	*base = -1;
 	*arg = _tokens[i];
 
-	// Test first character of token i
 	switch (_tokens[i][0])
 	{
-		// If it is equal to the binary key..
 		case BIN_KEY[0]:
 			*base = 2;
 			if (BIN_KEY != "") *arg = strtok(*arg, BIN_KEY);
 			break;
 
-		// If it is equal to the hex key...
 		case HEX_KEY[0]:
 			*base = 16;
 			if (HEX_KEY != "") *arg = strtok(*arg, HEX_KEY);
 			break;
 
-		// If it is equal to the decimal key...
 		case DEC_KEY[0]:
 			*base = 10;
 			if (DEC_KEY != "") *arg = strtok(*arg, DEC_KEY);
 			break;
 
-		// By default, handle any empty keys
 		default:
 			if (BIN_KEY == "") *base = 2;
 			if (HEX_KEY == "") *base = 16;
@@ -422,27 +666,43 @@ void Parser::CalculateBase(int i, int* base, char** arg)
 
 bool Parser::GetLabel(char* c)
 {
-	// Loop over all labels in label dictionary
-	for (int i = 0; i < MAX_LABELS; i++)
+	//printf("c is %s\n", c);
+	for (int i = 0; i < _labelDictionary.NumLabels(); i++)
 	{
-		// Convert label i in the label dictionary to const char*
-		const char* lbl = _labels[i].c_str();
+		//printf("checking label -- %s\n", _labelDictionary.GetLabel(i).c_str());
+		const char* lbl = _labelDictionary.labels[i].c_str();
+		
+		//printf("lbl %s\n", _labelDictionary.GetLabel(i).c_str());
 
-		// If the passed-in character matches lbl, it has been successfully found in the label dictionary
-		if (!strcmp(c, lbl))
+		if (!strcmp(c,  lbl))
 		{
-			// Pull out the label from entry i in the label dictionary for use outside of this function
-			_label = _labels[i];
+			_labelDictionary.currLabel = lbl;
+			_labelDictionary.currValue = _labelDictionary.values[i];
 
-			// Pull out the replacement value from entry i in the label dictionary for use outside of this function
-			_replacementValue = _replacementValues[i];
-
-			// Since we found a match, return true
 			return true;
 		}
 	}
 
-	// If we've looped through the whole label dictionary and didn't find a match, return false
+	return false;
+}
+
+bool Parser::GetRegister(char* c)
+{
+	//printf("c is %s\n", c);
+	for (int i = 0; i < _registerDictionary.NumLabels(); i++)
+	{
+		//printf("checking label -- %s\n", labels[i].c_str());
+		const char* reg = _registerDictionary.labels[i].c_str();
+		
+		if (!strcmp(c, reg))
+		{
+			_registerDictionary.currLabel = reg;
+			_registerDictionary.currValue = _registerDictionary.values[i];
+
+			return true;
+		}
+	}
+
 	return false;
 }
 
@@ -466,12 +726,9 @@ bool Parser::IsNumeric(char* c)
 
 bool Parser::IsAMnemonic(char* c)
 {
-	string mnemonics[5] = { "nop", "mov", "lda", "tba", "stc" };
-
-	// Just compare to mnemonics and return if there's a match
 	bool mnemonic = false;
-	for (int i = 0; i < 5; i++)
-		mnemonic = mnemonic || !strcmp(c, mnemonics[i].c_str());
+	for (int i = 0; i < _opcodeDictionary.NumOpcodes(); i++)
+		mnemonic = mnemonic || !strcmp(c, _opcodeDictionary.mnemonics[i].c_str());
 
 	return mnemonic;
 }

@@ -1,0 +1,90 @@
+; Define registers
+register	8		=	a, b, c, d, e, f
+register	16		=	pc, ra, int
+register	16		=	sp, si, di
+
+; Define opcodes
+; nop
+opcode	nop			=	$00
+
+; Leave space for BRK and other things before we get to register opcodes
+
+; Constant load opcodes (x86 style)
+opcode	mov a, #	=	$0A
+opcode	mov b, #	=	$0B
+opcode	mov c, #	=	$0C
+opcode	mov d, #	=	$0D
+opcode	mov e, #	=	$0E
+opcode	mov f, #	=	$0F
+
+; Constant load opcodes (6502 style)
+opcode	lda #		=	$0A
+opcode	ldb #		=	$0B
+opcode	ldc #		=	$0C
+opcode	ldd #		=	$0D
+opcode	lde #		=	$0E
+opcode	ldf #		=	$0F
+
+; Register transfer opcodes (x86 style)
+opcode	mov a, b	=	$10
+opcode	mov a, c	=	$11
+opcode	mov a, d	=	$12
+opcode	mov a, e	=	$13
+opcode	mov a, f	=	$14
+opcode	mov b, a	=	$15
+opcode	mov b, c	=	$16
+opcode	mov b, d	=	$17
+opcode	mov b, e	=	$18
+opcode	mov b, f	=	$19
+opcode	mov c, a	=	$1A
+opcode	mov c, b	=	$1B
+opcode	mov c, d	=	$1C
+opcode	mov c, e	=	$1D
+opcode	mov c, f	=	$1E
+opcode	mov d, a	=	$1F
+opcode	mov d, b	=	$20
+opcode	mov d, c	=	$21
+opcode	mov d, e	=	$22
+opcode	mov d, f	=	$23
+opcode	mov e, a	=	$24
+opcode	mov e, b	=	$25
+opcode	mov e, c	=	$26
+opcode	mov e, d	=	$27
+opcode	mov e, f	=	$28
+opcode	mov f, a	=	$29
+opcode	mov f, b	=	$2A
+opcode	mov f, c	=	$2B
+opcode	mov f, d	=	$2C
+opcode	mov f, e	=	$2D
+
+; Register transfer opcodes (6502 style)
+opcode	tab			=	$10
+opcode	tac			=	$11
+opcode	tad			=	$12
+opcode	tae			=	$13
+opcode	taf			=	$14
+opcode	tba			=	$15
+opcode	tbc			=	$16
+opcode	tbd			=	$17
+opcode	tbe			=	$18
+opcode	tbf			=	$19
+opcode	tca			=	$1A
+opcode	tcb			=	$1B
+opcode	tcd			=	$1C
+opcode	tce			=	$1D
+opcode	tcf			=	$1E
+opcode	tda			=	$1F
+opcode	tdb			=	$20
+opcode	tdc			=	$21
+opcode	tde			=	$22
+opcode	tdf			=	$23
+opcode	tea			=	$24
+opcode	teb			=	$25
+opcode	tec			=	$26
+opcode	ted			=	$27
+opcode	tef			=	$28
+opcode	tfa			=	$29
+opcode	tfb			=	$2A
+opcode	tfc			=	$2B
+opcode	tfd			=	$2C
+opcode	tfe			=	$2D

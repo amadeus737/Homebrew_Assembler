@@ -1,68 +1,268 @@
 #pragma once
 #include <vector>
+#include <cstring>
+#include <string>
 #include "Config.h"
+
+//#define MAX_LABELS    100
+//#define MAX_REGISTERS 50
+//#define MAX_OPCODES   65536  // 2^16 bc 16-bit datapath
+//#define MAX_OPCODE_ARGS 2
 
 using namespace std;
 
-// Used to set the output print mode
-enum class Mode { None, Brief, Verbose };
+enum class ParseMode { None, Architecture, Assembler };
+enum class LineType { None, Blank, Comment, File, Register, Opcode, Directive, Symbol, Label, OpCode };
+enum class TokenType { None, Architecture, Origin, Export, Byte, Ascii, Symbol, Label, OpCode };
+enum class OutMode { None, Brief, Verbose };
+enum class ArgType { None, Register, Numeral };
 
-// Parsing in this assembler occurs in three phases. These enumerations are used to keep
-// track of the types in each step. The three phases of parsing are:
-//  (1) Parsing a file into individual lines
-//  (2) Parsing each line into tokens
-//  (3) Parsing tokens 
-enum class LineType  { None, Blank, Comment, Directive, Symbol, Label, OpCode };
-enum class TokenType { None, Origin, Export, Symbol, Label, OpCode };
+class LabelDictionary
+{
+	public:
+		LabelDictionary()
+		{
+			currLabel = "";
+			currValue = 0;
+
+			labels.clear();
+			values.clear();
+		}
+
+		int NumLabels()
+		{
+			return labels.size();
+		}
+
+		void AddCurrentEntry() 
+		{
+			labels.push_back(currLabel);
+			values.push_back(currValue);
+		}
+
+		void Add(string newLabel, int newVal) 
+		{
+			labels.push_back(newLabel);
+			values.push_back(newVal);
+
+			currLabel = newLabel;
+			currValue = newVal;
+		}
+
+		string currLabel;
+		int currValue;
+
+		vector<string> labels;
+		vector<int> values;
+};
+
+class OpcodeDictionary
+{
+	public:
+		OpcodeDictionary()
+		{
+			currMnemonic = "";
+			currArg0type = ArgType::None;
+			currArg1type = ArgType::None;
+			currArg0string = "";
+			currArg1string = "";
+			currValue = -1;
+			currNumArgs = -1;
+
+			mnemonics.clear();
+			numArgs.clear();
+			values.clear();
+			arg0types.clear();
+			arg1types.clear();
+			arg0strings.clear();
+			arg1strings.clear();
+		}
+
+		int NumOpcodes()
+		{
+			return mnemonics.size();
+		}
+
+		void AddCurrentEntry()
+		{
+			mnemonics.push_back(currMnemonic);
+			numArgs.push_back(currNumArgs);
+			values.push_back(currValue);
+			arg0types.push_back(currArg0type);
+			arg1types.push_back(currArg1type);
+			arg0strings.push_back(currArg0string);
+			arg1strings.push_back(currArg1string);
+		}
+
+		void Add2Arg(string m, string a0, string a1, int v)
+		{
+			mnemonics.push_back(m);
+			numArgs.push_back(2);
+			arg0types.push_back(ArgType::Register);
+			arg1types.push_back(ArgType::Register);
+			arg0strings.push_back(a0);
+			arg1strings.push_back(a1);
+			values.push_back(v);
+
+			currMnemonic = m;
+			currNumArgs = 2;
+			currArg0type = ArgType::Register;
+			currArg1type = ArgType::Register;
+			currArg0string = a0;
+			currArg1string = a1;
+			currValue = v;
+		}
+
+		void Add2Arg(string m, string a0, int a1, int v)
+		{
+			mnemonics.push_back(m);
+			numArgs.push_back(2);
+			arg0types.push_back(ArgType::Register);
+			arg1types.push_back(ArgType::Numeral);
+			arg0strings.push_back(a0);
+			arg1strings.push_back("");
+			values.push_back(v);
+
+			currMnemonic = m;
+			currNumArgs = 2;
+			currArg0type = ArgType::Register;
+			currArg1type = ArgType::Numeral;
+			currArg0string = a0;
+			currArg1string = "";
+			currValue = v;
+		}
+
+		void Add2Arg(string m, int a0, string a1, int v)
+		{
+			mnemonics.push_back(m);
+			numArgs.push_back(2);
+			arg0types.push_back(ArgType::Numeral);
+			arg1types.push_back(ArgType::Register);
+			arg0strings.push_back("");
+			arg1strings.push_back(a1);
+			values.push_back(v);
+
+			currMnemonic = m;
+			currNumArgs = 2;
+			currArg0type = ArgType::Numeral;
+			currArg1type = ArgType::Register;
+			currArg0string = "";
+			currArg1string = a1;
+			currValue = v;
+		}
+
+		void Add1Arg(string m, string a0, int v)
+		{
+			mnemonics.push_back(m);
+			numArgs.push_back(1);
+			arg0types.push_back(ArgType::Register);
+			arg1types.push_back(ArgType::None);
+			arg0strings.push_back(a0);
+			arg1strings.push_back("");
+			values.push_back(v);
+
+			currMnemonic = m;
+			currNumArgs = 1;
+			currArg0type = ArgType::Register;
+			currArg1type = ArgType::None;
+			currArg0string = a0;
+			currArg1string = "";
+			currValue = v;
+		}
+		
+		void Add1Arg(string m, int a0, int v)
+		{
+			mnemonics.push_back(m);
+			numArgs.push_back(1);
+			arg0types.push_back(ArgType::Numeral);
+			arg1types.push_back(ArgType::None);
+			arg0strings.push_back("");
+			arg1strings.push_back("");
+			values.push_back(v);
+
+			currMnemonic = m;
+			currNumArgs = 1;
+			currArg0type = ArgType::Numeral;
+			currArg1type = ArgType::None;
+			currArg0string = "";
+			currArg1string = "";
+			currValue = v;
+		}
+
+		void Add1Arg(string m, int v)
+		{
+			mnemonics.push_back(m);
+			numArgs.push_back(0);
+			arg0types.push_back(ArgType::None);
+			arg1types.push_back(ArgType::None);
+			arg0strings.push_back("");
+			arg1strings.push_back("");
+			values.push_back(v);
+
+			currMnemonic = m;
+			currNumArgs = 1;
+			currArg0type = ArgType::None;
+			currArg1type = ArgType::None;
+			currArg0string = "";
+			currArg1string = "";
+			currValue = v;
+		}
+
+		string currMnemonic;
+		int currValue;
+		ArgType currArg0type;
+		ArgType currArg1type;
+		string currArg0string;
+		string currArg1string;
+		int currNumArgs;
+		int currArg0num;
+		int currArg1num;
+
+		vector<string> mnemonics;
+		vector<int> values;
+		vector<int> numArgs;
+		vector<ArgType> arg0types;
+		vector<ArgType> arg1types;
+		vector<string> arg0strings;
+		vector<string> arg1strings;
+};
 
 class Parser
 {
 public:
-	// Constructor
-	Parser() { _numTokens = 0; _tokens.clear(); _lineType = LineType::None; _mode = Mode::None; _address = 0; _startAddress = 0; _endAddress = 0; _ocmnemonic = NULL; _currTokenType = TokenType::None; _label = ""; _replacementValue = -1; _labelCount = -1; for (int i = 0; i < 10; i++) { _labels[i] = ""; _replacementValues[i] = -1; _newOpCode = false; } }
+	Parser();
 
-	// This function initiates phase 0 of parsing (file -> lines)
+	void SetParseMode(ParseMode m) { _parseMode = m; }
+	void ResetParser() { _archProcessed = false; _archFile = ""; _numTokens = 0; _tokens.clear(); _lineType = LineType::None; _outMode = OutMode::None; _address = 0; _startAddress = 0; _endAddress = 0; _currTokenType = TokenType::None; };
+	void ResetForNewLine() { _numTokens = 0; _tokens.clear(); _lineType = LineType::None; }
 	void Parse(char* filename);
+	void SetOutMode(OutMode m) { _outMode = m; }
 
-	// This function sets the output print mode
-	void SetMode(Mode m) { _mode = m; }
-
-private:
-	// This function initiates phase 1 of parsing (lines -> tokens)
+protected:
 	void ParseLineIntoTokens(const char* line, const char* delimiters);
-
-	// This function initiates phase 2 of parsing (tokens -> interpreted assembly)
-	void ParseToken(int i);
-
-	// Resets some parameters
-	void Reset() { _numTokens = 0; _tokens.clear(); _lineType = LineType::None; }
-
-	// Used to calculate the numerical base 
+	int ParseToken(int i);
 	void CalculateBase(int i, int* base, char** arg);
-
-	// Used to compare an input character with label database and retrieve both label and replacement value
 	bool GetLabel(char* c);
-
-	// Tests an input character for 0-9 and all number prefixes (BIN_KEY, HEX_KEY, DEC_KEY)
+	bool GetRegister(char* c);
 	bool IsNumeric(char* c);
-
-	// Tests whether the input character is an opcode mnemonic
 	bool IsAMnemonic(char* c);
 
 private:
-	Mode _mode;							 // Holds the output print mode
-	int _address;						 // Holds the calculated address, which can be modified by some assembly commands
-	int _startAddress;                   // The start address for writing to the ROM
-	int _endAddress;                     // The end address for writing to the ROM
-	LineType _lineType;                  // Type of line being parsed
-	int     _numTokens;                  // Number of tokes in a line
-	vector<char*>   _tokens;             // Holds the parsed tokens for the line
-	TokenType _currTokenType;            // Holds the type of the current token
-	char* _ocmnemonic;                   // 
-	int _labelCount;                     // Used to index entries in the label dictionary (_labels and _replacementValues)
-	string _labels[MAX_LABELS];          // Holds the labels added to the label dictionary
-	int _replacementValues[MAX_LABELS];  // Holds the values string labels in the label dictionary are replaced with
-	string _label;                       //
-	int _replacementValue;               //
-	bool _newOpCode;                     //
+	bool _archProcessed = false;
+	string _archFile;
+	OutMode _outMode;
+	ParseMode _parseMode;
+	LineType _lineType;
+	int     _numTokens;
+	vector<char*>   _tokens;
+	TokenType _currTokenType;
+	int _address;
+	int _startAddress;
+	int _endAddress;
+	//char* _ocmnemonic;
+	bool _newOpCode;
+
+	LabelDictionary _labelDictionary;
+	LabelDictionary _registerDictionary;
+	OpcodeDictionary _opcodeDictionary;
 };
