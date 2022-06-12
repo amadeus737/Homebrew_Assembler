@@ -142,10 +142,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Homebrew_Assembler.cpp" />
+    <ClCompile Include="LabelDictionary.cpp" />
+    <ClCompile Include="OpcodeDictionary.cpp" />
     <ClCompile Include="Parser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
+    <ClInclude Include="LabelDictionary.h" />
+    <ClInclude Include="OpcodeDictionary.h" />
     <ClInclude Include="Parser.h" />
   </ItemGroup>
   <ItemGroup>
