@@ -16,7 +16,7 @@ enum class OutMode { None, Brief, Verbose };
 class Parser
 {
 public:
-	Parser() : 
+	Parser() :
 		_processingExternFile(false), _linePtr(-1), _currFile(""), _outMode(OutMode::None), _parseMode(ParseMode::None), _lineType(LineType::None), _numTokens(0),
 		_currTokenType(TokenType::None), _labelDictionary(LabelDictionary()), _registerDictionary(LabelDictionary()), _opcodeDictionary(OpcodeDictionary()), _programROM(ROMData())
 	{ _tokens.clear(); }
@@ -33,7 +33,7 @@ protected:
 	void CalculateBase(int i, int* base, char** arg);
 	bool IsNumeric(const char* c);
 	const string SplitFilename(const string& s, const string& preferredPath, const string& preferredExtension, bool forcePreferred);
-	void ProcessRegisters(string fullfile);
+	void ProcessRegisters(string filename);
 	void WriteToROM(const char* filename);
 
 private:
