@@ -37,7 +37,7 @@ void ROMData::SetEndAddress(int a)
 	_endAddress = a;
 }
 
-void ROMData::SetPattern(string p)
+void ROMData::SetPattern(const string& p)
 {
 	_patterns.push_back(p);
 }
@@ -143,7 +143,7 @@ bool ROMData::GetValueAtAddress(int a, int* v)
 	return false;
 }
 
-void ROMData::Write(char* filename, const unsigned int size)
+void ROMData::Write(const char* filename, const unsigned int size)
 {
 	// Create the binary file
 	FILE *file = fopen(filename, "wb");

@@ -20,7 +20,7 @@ void LabelDictionary::AddCurrentEntry()
 	_values.push_back(currValue);
 }
 
-void LabelDictionary::Add(string newLabel, int newVal)
+void LabelDictionary::Add(const string& newLabel, int newVal)
 {
 	_labels.push_back(newLabel);
 	_values.push_back(newVal);
@@ -29,7 +29,7 @@ void LabelDictionary::Add(string newLabel, int newVal)
 	currValue = newVal;
 }
 
-bool LabelDictionary::GetLabel(char* c)
+bool LabelDictionary::GetLabel(const char* c)
 {
 	for (int i = 0; i < _labels.size(); i++)
 	{

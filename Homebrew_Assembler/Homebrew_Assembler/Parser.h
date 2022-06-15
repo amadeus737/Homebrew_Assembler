@@ -18,7 +18,7 @@ class Parser
 public:
 	Parser() : 
 		_processingExternFile(false), _linePtr(-1), _currFile(""), _outMode(OutMode::None), _parseMode(ParseMode::None), _lineType(LineType::None), _numTokens(0),
-		_currTokenType(TokenType::None), _labelDictionary(LabelDictionary()), _registerDictionary(LabelDictionary()), _opcodeDictionary(OpcodeDictionary())
+		_currTokenType(TokenType::None), _labelDictionary(LabelDictionary()), _registerDictionary(LabelDictionary()), _opcodeDictionary(OpcodeDictionary()), _programROM(ROMData())
 	{ _tokens.clear(); }
 
 	void SetParseMode(ParseMode m) { _parseMode = m; }

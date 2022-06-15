@@ -1,4 +1,9 @@
 ﻿  Homebrew_Assembler.cpp
+  LabelDictionary.cpp
+c:\users\c\documents\github\homebrew_assembler\homebrew_assembler\homebrew_assembler\labeldictionary.cpp(14): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
+  OpcodeDictionary.cpp
+c:\users\c\documents\github\homebrew_assembler\homebrew_assembler\homebrew_assembler\opcodedictionary.cpp(26): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data
   Parser.cpp
+  ROMData.cpp
   Generating Code...
   Homebrew_Assembler.vcxproj -> C:\Users\c\Documents\GitHub\Homebrew_Assembler\Homebrew_Assembler\x64\Debug\Homebrew_Assembler.exe

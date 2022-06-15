@@ -1,3 +1,4 @@
+#pragma once
 #include <string>
 #include <vector>
 
@@ -10,8 +11,8 @@ public:
 	
 	int NumLabels();
 	void AddCurrentEntry();
-	void Add(string newLabel, int newVal);
-	bool GetLabel(char* c);
+	void Add(const string& newLabel, int newVal);
+	bool GetLabel(const char* c);
 
 	string currLabel;
 	int currValue;

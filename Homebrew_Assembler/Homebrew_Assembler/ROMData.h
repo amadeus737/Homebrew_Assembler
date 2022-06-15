@@ -15,10 +15,10 @@ public:
 	void SetEndAddress(int a);
 	int GetCurrentAddress() { return _currAddress; }
 	bool GetValueAtAddress(int a, int *v);
-	void SetPattern(string p);
+	void SetPattern(const string& p);
 	void PrintList();
 	void PrintTable();
-	void Write(char* filename, const unsigned int size);
+	void Write(const char* filename, const unsigned int size);
 
 private:
 	int _currAddress;
