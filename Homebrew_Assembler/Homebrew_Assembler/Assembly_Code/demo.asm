@@ -1,8 +1,5 @@
-.arch "homebrew"
-.org 0
-.export 0 255
-
-@X $42
+.arch homebrew
+.include test1.asm
 
 [start]:
 	nop
@@ -13,11 +10,7 @@
 	nop
 	@Y $21
 
-	ldb Y
-	lda $33
-
-	.byte %1010, $53, 15
-	.ascii "Hello/world!"
+	.insert test2.asm
 
 	mov b, a
 	tba

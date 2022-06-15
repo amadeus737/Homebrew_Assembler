@@ -61,5 +61,11 @@
     <None Include="Architecture_Config\homebrew.arch">
       <Filter>Architecture</Filter>
     </None>
+    <None Include="Assembly_Code\test1.asm">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Assembly_Code\test2.asm">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

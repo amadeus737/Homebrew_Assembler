@@ -157,6 +157,8 @@
   <ItemGroup>
     <None Include="Architecture_Config\homebrew.arch" />
     <None Include="Assembly_Code\demo.asm" />
+    <None Include="Assembly_Code\test1.asm" />
+    <None Include="Assembly_Code\test2.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

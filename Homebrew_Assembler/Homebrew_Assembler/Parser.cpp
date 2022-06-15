@@ -3,22 +3,7 @@
 #include <fstream>
 #include <iostream>
 
-Parser::Parser()
-{
-	_opcodeDictionary = OpcodeDictionary();
-	_registerDictionary = LabelDictionary(); 
-	_labelDictionary = LabelDictionary();
-	_programROM = ROMData();
-	_archProcessed = false; 
-	_archFile = ""; 
-	_numTokens = 0; 
-	_tokens.clear(); 
-	_lineType = LineType::None;
-	_outMode = OutMode::None; 
-	_currTokenType = TokenType::None;
-}
-
-void Parser::Parse(char* filename)
+void Parser::Parse(const char* filename)
 {
 	int retCode = -1;
 	
@@ -41,11 +26,20 @@ void Parser::Parse(char* filename)
 		// Pull in each line individually...will repeat until EOF
 		while (getline(inFile, line))
 		{
+			// Skip any lines already processed
+			if (_linePtr != -1 && linenum <= _linePtr && !_processingExternFile)
+			{
+				linenum++;
+				continue;
+			}
+
 			// Line parse object needs to be reset for every line!
 			ResetForNewLine();
 
 			// Convert the line that was pulled in into an array of characters
 			const char* c_line = line.c_str();
+
+			printf("    -> Line #%d that is being parsed : \"%s\"\n", linenum + 1, c_line);
 
 			if (c_line != NULL)
 			{
@@ -61,7 +55,7 @@ void Parser::Parse(char* filename)
 						if (_outMode == OutMode::Verbose)
 						{
 							// Echo current token to screen
-							//printf("       -> Token that is being parsed: #%d \"%s\"\n", i, _tokens[i]);
+							printf("       -> Token that is being parsed: #%d \"%s\"\n", i, _tokens[i]);
 						}
 
 						string currToken = _tokens[i];
@@ -73,11 +67,16 @@ void Parser::Parse(char* filename)
 						// Parse token i
 						retCode = ParseToken(i);
 
-						if (retCode == 1)
-							_archFile = strtok((char*)nextToken.c_str(), "\"");
-
 						if (retCode == -1) printf("ERROR occurred while parsing tokens\n");
-						if (retCode == 1 && !_archProcessed) { inFile.close(); break; }
+
+						if (retCode == 1)
+						{ 
+							inFile.close();
+							_processingExternFile = true;
+							_currFile = strtok((char*)nextToken.c_str(), "\"");
+							break;
+						}
+
 					}
 				}
 			}
@@ -88,31 +87,17 @@ void Parser::Parse(char* filename)
 
 			// Increase line number
 			linenum++;
+			_linePtr++;
 		}
 
-		if (_outMode == OutMode::Verbose && retCode != 1)
+		if (_outMode == OutMode::Verbose && retCode != 1 && !_processingExternFile)
 		{
 			printf("\nDONE!\n\n\n");
 		}
 
-		if (retCode == 0) 
+		if (retCode == 0 && !_processingExternFile) 
 		{
-			_programROM.PrintList();
-			_programROM.PrintTable();
-
-			string path = "..\\Homebrew_Assembler\\ROM_Files\\";
-			string filename_s = (string)filename;
-			
-			vector<string> pathTokens = SplitString(filename_s, "\\");
-			string fileAndExtension = pathTokens[pathTokens.size()-1];
-			vector<string> fileTokens = SplitString(fileAndExtension, ".");
-			string file = fileTokens[0];
-			string extension = ".bin";
-			
-			string fullfile = path + file + extension;
-							   
-			printf("Writing ROM data to %s\n", fullfile.c_str());
-			_programROM.Write((char*)fullfile.c_str(), 32768);
+			WriteToROM(filename);
 		}
 
 		// Once we reach EOF, close the file
@@ -126,261 +111,299 @@ void Parser::Parse(char* filename)
 	// If ParseToken(i) returns a 1, that means we need to further process an architecture file
 	if (retCode == 1)
 	{
-		string path = "..\\Homebrew_Assembler\\Architecture_Config\\";
-		string filename_s = (string)_archFile;
+		int savedLinePtr = _linePtr;
+		string filename_s = (string)_currFile;
 
-		vector<string> pathTokens = SplitString(filename_s, "\\");
-		string fileAndExtension = pathTokens[pathTokens.size()-1];
-		vector<string> fileTokens = SplitString(fileAndExtension, ".");
-		string file = fileTokens[0];
-		string extension = ".arch";
+		string preferredPath = "";
+		string preferredExtension = "";
 
-		string fullFile = path + file + extension;
+		if (_currTokenType == TokenType::Architecture)
+		{ 
+			preferredPath = "..\\Homebrew_Assembler\\Architecture_Config\\";
+			preferredExtension = ".arch";
+		}
 
-		// Open the architecture file for input
-		ifstream inFile2(fullFile.c_str());
-		if (inFile2.is_open())
+		if (_currTokenType == TokenType::Include)
 		{
-			// In a file, the first line number shows as 1 so set it to 1 for reporting line numbers in errors to the user
-			linenum = 1;
+			preferredPath = "..\\Homebrew_Assembler\\Assembly_Code\\";
+			preferredExtension = ".asm";
+		}
 
-			while (getline(inFile2, line))
+		string fullFile = SplitFilename(filename_s, preferredPath, preferredExtension, false);
+		
+		if (_currTokenType == TokenType::Architecture)
+			ProcessRegisters(fullFile);
+		else
+			Parse(fullFile.c_str());
+			
+		_linePtr = savedLinePtr;
+		_processingExternFile = false;
+		_parseMode = ParseMode::Assembler;
+		Parse(filename);
+	}
+}
+
+void Parser::WriteToROM(const char* filename)
+{
+	_programROM.PrintList();
+	_programROM.PrintTable();
+
+	string filename_s = (string)filename;
+	string preferredPath = "..\\Homebrew_Assembler\\ROM_Files\\";
+	string preferredExtension = ".bin";
+
+	string fullFile = SplitFilename(filename_s, preferredPath, preferredExtension, true);
+
+	printf("Writing ROM data to %s\n", fullFile.c_str());
+	_programROM.Write((char*)fullFile.c_str(), 32768);
+}
+
+void Parser::ProcessRegisters(string fullFile)
+{
+	// Open the architecture file for input
+	ifstream inFile2(fullFile.c_str());
+	if (inFile2.is_open())
+	{
+		// In a file, the first line number shows as 1 so set it to 1 for reporting line numbers in errors to the user
+		int linenum = 0;
+		string line;
+
+		while (getline(inFile2, line))
+		{
+			//printf("Reading Line #%d: %s\n", linenum, line.c_str());
+
+			// Line parse object needs to be reset for every line!
+			ResetForNewLine();
+
+			// Convert the line that was pulled in into an array of characters
+			const char* c_line = line.c_str();
+
+			if (c_line != NULL)
 			{
-				//printf("Reading Line #%d: %s\n", linenum, line.c_str());
+				// Parse line into tokens
+				ParseLineIntoTokens(c_line, " ,\t");
 
-				// Line parse object needs to be reset for every line!
-				ResetForNewLine();
+				// Initialize some values we'll need for parsing registers and opcodes
+				int cmdSize = -1;
+				string ocmnemonic = "";
+				bool ocEqualProcessed = false;
+				bool opcodeIsAliased = false;
 
-				// Convert the line that was pulled in into an array of characters
-				const char* c_line = line.c_str();
-				
-				if (c_line != NULL)
+				if (_numTokens > 0)
 				{
-					// Parse line into tokens
-					ParseLineIntoTokens(c_line, " ,\t");
-					
-					// Initialize some values we'll need for parsing registers and opcodes
-					int cmdSize = -1;
-					string ocmnemonic = "";
-					bool ocEqualProcessed = false;
-					bool opcodeIsAliased = false;
-					
-					if (_numTokens > 0)
+					// First token will indicate if the line is a register or an opcode
+					if (!strcmp(_tokens[0], "register"))	_lineType = LineType::Register;
+					if (!strcmp(_tokens[0], "opcode"))		_lineType = LineType::Opcode;
+					if (!strcmp(_tokens[0], "opcode_alias"))
 					{
-						// First token will indicate if the line is a register or an opcode
-						if (!strcmp(_tokens[0], "register"))	_lineType = LineType::Register;
-						if (!strcmp(_tokens[0], "opcode"))		_lineType = LineType::Opcode;
-						if (!strcmp(_tokens[0], "opcode_alias"))
+						_lineType = LineType::Opcode;
+						opcodeIsAliased = true;
+					}
+
+					// Second token will either be register size or opcode mnemonic
+					cmdSize = stoi(_tokens[1], nullptr, 10);
+
+					ocmnemonic = _lineType == LineType::Opcode ? _tokens[2] : "";
+					_opcodeDictionary.currMnemonic = ocmnemonic;
+					_opcodeDictionary.currNumArgs = 0;
+
+					int iStart = _lineType == LineType::Register ? 2 : 3;
+
+					if (_numTokens > 1)
+					{
+						// We've already processed the first two tokens...
+						for (int i = iStart; i < _numTokens; i++)
 						{
-							_lineType = LineType::Opcode;
-							opcodeIsAliased = true;
-						}
-						
-						// Second token will either be register size or opcode mnemonic
-						cmdSize = stoi(_tokens[1], nullptr, 10);
+							//printf("       -> Token that is being parsed: #%d \"%s\"\n", i, _tokens[i]);
 
-						ocmnemonic = _lineType == LineType::Opcode ? _tokens[2] : "";
-						_opcodeDictionary.currMnemonic = ocmnemonic;
-						_opcodeDictionary.currNumArgs = 0;
-
-						int iStart = _lineType == LineType::Register ? 2 : 3;
-
-						if (_numTokens > 1)
-						{
-							// We've already processed the first two tokens...
-							for (int i = iStart; i < _numTokens; i++)
+							// If this is a register line, we need to add these registers to the register dictionary
+							if (_lineType == LineType::Register)
 							{
-								//printf("       -> Token that is being parsed: #%d \"%s\"\n", i, _tokens[i]);
+								// Skip parsing equal signs
+								if (!strcmp(_tokens[i], "=")) continue;
 
-								// If this is a register line, we need to add these registers to the register dictionary
-								if (_lineType == LineType::Register)
+								// If arch file was correctly typed, anything token at this point should be the label of a new register.
+								// So, let's add it to the register dictionary. Throw an error if register has already been added.
+								if (_registerDictionary.GetLabel((char*)_tokens[i]))
 								{
-									// Skip parsing equal signs
-									if (!strcmp(_tokens[i], "=")) continue;
+									printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _currFile.c_str());
+									printf("  -> Register \"%s\" already defined! Parsing cannot continue until fixed\n", _tokens[i]);
+									return;
+								}
+								else
+								{
+									// Add this register to the register dictionary
+									_registerDictionary.Add(_tokens[i], cmdSize);
+									printf("       -> Adding %d-bit register: \"%s\"\n", _registerDictionary.currValue, _registerDictionary.currLabel.c_str());
+								}
+							}
 
-									// If arch file was correctly typed, anything token at this point should be the label of a new register.
-									// So, let's add it to the register dictionary. Throw an error if register has already been added.
-									if (_registerDictionary.GetLabel((char*)_tokens[i]))
-									{
-										printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
-										printf("  -> Register \"%s\" already defined! Parsing cannot continue until fixed\n", _tokens[i]);
-										return;
-									}
-									else
-									{
-										// Add this register to the register dictionary
-										_registerDictionary.Add(_tokens[i], cmdSize);										
-									//	printf("       -> Adding %d-bit register: \"%s\"\n", _registerDictionary.currValue, _registerDictionary.currLabel.c_str());
-									}
+							if (_lineType == LineType::Opcode)
+							{
+								if (!strcmp(_tokens[i], "="))
+								{
+									ocEqualProcessed = true;
+									continue;
 								}
 
-								if (_lineType == LineType::Opcode)
+								// If we haven't yet read an equal sign, then the tokens correspond to the opcode definition.
+								// If we have read the equal sign, then the token is the opcode value.
+								if (!ocEqualProcessed)
 								{
-									if (!strcmp(_tokens[i], "="))
+									// See if the argument is a register
+									if (_registerDictionary.GetLabel(_tokens[i]))
 									{
-										ocEqualProcessed = true;
-										continue;
-									}
-
-									// If we haven't yet read an equal sign, then the tokens correspond to the opcode definition.
-									// If we have read the equal sign, then the token is the opcode value.
-									if (!ocEqualProcessed)
-									{
-										// See if the argument is a register
-										if (_registerDictionary.GetLabel(_tokens[i]))
+										if (_opcodeDictionary.currNumArgs == 0)
 										{
-											if (_opcodeDictionary.currNumArgs == 0)
-											{	
-												_opcodeDictionary.currArg0type = ArgType::Register;
-												_opcodeDictionary.currArg0string = _tokens[i];
-												_opcodeDictionary.currNumArgs++;
-											}
-											else
-											{												
-												_opcodeDictionary.currArg1type = ArgType::Register;
-												_opcodeDictionary.currArg1string = _tokens[i];
-												_opcodeDictionary.currNumArgs++;
-											}
-										}
-										else if (!strcmp(_tokens[i], "#"))
-										{
-											if (_opcodeDictionary.currNumArgs == 0)
-											{
-												_opcodeDictionary.currArg0type = ArgType::Numeral;
-												_opcodeDictionary.currNumArgs++;
-											}
-											else
-											{
-												_opcodeDictionary.currArg1type = ArgType::Numeral;
-												_opcodeDictionary.currNumArgs++;
-											}
+											_opcodeDictionary.currArg0type = ArgType::Register;
+											_opcodeDictionary.currArg0string = _tokens[i];
+											_opcodeDictionary.currNumArgs++;
 										}
 										else
 										{
-											printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
-											printf("  -> Unknown opcode argument \"%s\"! Parsing cannot continue until fixed\n", _tokens[i]);
-											return;
+											_opcodeDictionary.currArg1type = ArgType::Register;
+											_opcodeDictionary.currArg1string = _tokens[i];
+											_opcodeDictionary.currNumArgs++;
+										}
+									}
+									else if (!strcmp(_tokens[i], "#"))
+									{
+										if (_opcodeDictionary.currNumArgs == 0)
+										{
+											_opcodeDictionary.currArg0type = ArgType::Numeral;
+											_opcodeDictionary.currNumArgs++;
+										}
+										else
+										{
+											_opcodeDictionary.currArg1type = ArgType::Numeral;
+											_opcodeDictionary.currNumArgs++;
 										}
 									}
 									else
 									{
-										int base;
-										char* arg;
-										CalculateBase(i, &base, &arg);
-										
-										int ocval = stoi(arg, nullptr, base);
+										printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _currFile.c_str());
+										printf("  -> Unknown opcode argument \"%s\"! Parsing cannot continue until fixed\n", _tokens[i]);
+										return;
+									}
+								}
+								else
+								{
+									int base;
+									char* arg;
+									CalculateBase(i, &base, &arg);
 
-										if (_opcodeDictionary.GetOpcodeValue(ocval) && !opcodeIsAliased)
+									int ocval = stoi(arg, nullptr, base);
+
+									if (_opcodeDictionary.GetOpcodeValue(ocval) && !opcodeIsAliased)
+									{
+										printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _currFile.c_str());
+										printf("  -> Value of \"%d\" assigned to opcode already exists! Parsing cannot continue until fixed\n", ocval);
+										return;
+									}
+
+									_opcodeDictionary.currValue = ocval;
+									_opcodeDictionary.currSize = cmdSize;
+
+									int v;
+									int s;
+									if (_opcodeDictionary.currNumArgs == 0)
+									{
+										if (opcodeIsAliased || !_opcodeDictionary.Get0ArgOpcode(_opcodeDictionary.currMnemonic, &s, &v))
 										{
-											printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
-											printf("  -> Value of \"%d\" assigned to opcode already exists! Parsing cannot continue until fixed\n", ocval);
+											// Here's where the opcode is actually added to the dictionary
+											_opcodeDictionary.AddCurrentEntry();
+											printf("       -> Adding %d-bit opcode%s with pattern %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
+										}
+										else
+										{
+											printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _currFile.c_str());
+											printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
 											return;
 										}
+									}
 
-										_opcodeDictionary.currValue = ocval;
-										_opcodeDictionary.currSize = cmdSize;										
-
-										int v;
-										int s;
-										if (_opcodeDictionary.currNumArgs == 0)
+									if (_opcodeDictionary.currNumArgs == 1)
+									{
+										if (_opcodeDictionary.currArg0type == ArgType::Register)
 										{
-											if (opcodeIsAliased || !_opcodeDictionary.Get0ArgOpcode(_opcodeDictionary.currMnemonic, &s, &v))
+											if (opcodeIsAliased || !_opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, &s, &v))
 											{
 												// Here's where the opcode is actually added to the dictionary
 												_opcodeDictionary.AddCurrentEntry();
-											//	printf("       -> Adding %d-bit opcode%s with pattern %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
+												printf("       -> Adding %d-bit opcode%s with pattern %s %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
 											}
 											else
 											{
-												printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
+												printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _currFile.c_str());
 												printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
 												return;
 											}
-										}																			
+										}
 
-										if (_opcodeDictionary.currNumArgs == 1)
+										if (_opcodeDictionary.currArg0type == ArgType::Numeral)
 										{
-											if (_opcodeDictionary.currArg0type == ArgType::Register)
+											if (opcodeIsAliased || !_opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, &s, &v))
 											{
-												if (opcodeIsAliased || !_opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, &s, &v))
-												{
-													// Here's where the opcode is actually added to the dictionary
-													_opcodeDictionary.AddCurrentEntry();
-												//	printf("       -> Adding %d-bit opcode%s with pattern %s %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
-												}
-												else
-												{
-													printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
-													printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
-													return;
-												}
+												// Here's where the opcode is actually added to the dictionary
+												_opcodeDictionary.AddCurrentEntry();
+												printf("       -> Adding %d-bit opcode%s with pattern %s # = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
 											}
-
-											if (_opcodeDictionary.currArg0type == ArgType::Numeral)
+											else
 											{
-												if (opcodeIsAliased || !_opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, &s, &v))
-												{
-													// Here's where the opcode is actually added to the dictionary
-													_opcodeDictionary.AddCurrentEntry();
-												//	printf("       -> Adding %d-bit opcode%s with pattern %s # = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currValue);
-												}
-												else
-												{
-													printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
-													printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
-													return;
-												}
+												printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _currFile.c_str());
+												printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
+												return;
+											}
+										}
+									}
+
+									if (_opcodeDictionary.currNumArgs == 2)
+									{
+										if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Register)
+										{
+											if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1string, &s, &v))
+											{
+												// Here's where the opcode is actually added to the dictionary
+												_opcodeDictionary.AddCurrentEntry();
+												printf("       -> Adding %d-bit opcode%s with pattern %s %s, %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
+											}
+											else
+											{
+												printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _currFile.c_str());
+												printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
+												return;
 											}
 										}
 
-										if (_opcodeDictionary.currNumArgs == 2)
+										if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Numeral)
 										{
-											if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Register)
+											if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1num, &s, &v))
 											{
-												if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1string, &s, &v))
-												{
-													// Here's where the opcode is actually added to the dictionary
-													_opcodeDictionary.AddCurrentEntry();
-												//	printf("       -> Adding %d-bit opcode%s with pattern %s %s, %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
-												}
-												else
-												{
-													printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
-													printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
-													return;
-												}
+												// Here's where the opcode is actually added to the dictionary
+												_opcodeDictionary.AddCurrentEntry();
+												printf("       -> Adding %d-bit opcode%s with pattern %s %s, # = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
 											}
-
-											if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Numeral)
+											else
 											{
-												if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1num, &s, &v))
-												{
-													// Here's where the opcode is actually added to the dictionary
-													_opcodeDictionary.AddCurrentEntry();
-												//	printf("       -> Adding %d-bit opcode%s with pattern %s %s, # = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg0string.c_str(), _opcodeDictionary.currValue);
-												}
-												else
-												{
-													printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
-													printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
-													return;
-												}
+												printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _currFile.c_str());
+												printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
+												return;
 											}
+										}
 
-											if (_opcodeDictionary.currArg0type == ArgType::Numeral && _opcodeDictionary.currArg1type == ArgType::Register)
+										if (_opcodeDictionary.currArg0type == ArgType::Numeral && _opcodeDictionary.currArg1type == ArgType::Register)
+										{
+											if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, _opcodeDictionary.currArg1string, &s, &v))
 											{
-												if (opcodeIsAliased || !_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, _opcodeDictionary.currArg1string, &s, &v))
-												{
-													// Here's where the opcode is actually added to the dictionary
-													_opcodeDictionary.AddCurrentEntry();
-												//	printf("       -> Adding %d-bit opcode%s with pattern %s #, %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
-												}
-												else
-												{
-													printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _archFile.c_str());
-													printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
-													return;
-												}
+												// Here's where the opcode is actually added to the dictionary
+												_opcodeDictionary.AddCurrentEntry();
+												printf("       -> Adding %d-bit opcode%s with pattern %s #, %s = %02x\n", cmdSize, opcodeIsAliased ? "-alias" : "", _opcodeDictionary.currMnemonic.c_str(), _opcodeDictionary.currArg1string.c_str(), _opcodeDictionary.currValue);
+											}
+											else
+											{
+												printf("\n\n!!! CRITICAL ERROR in Line #%d of \"%s\" !!!\n", linenum, _currFile.c_str());
+												printf("  -> Opcode pattern already exists! Parsing cannot continue until fixed\n");
+												return;
 											}
 										}
 									}
@@ -389,25 +412,17 @@ void Parser::Parse(char* filename)
 						}
 					}
 				}
-
-				linenum++;
 			}
 
-			// Once we reach EOF, close the file
-			inFile2.close();
+			linenum++;
 		}
-		else
-		{
-			printf("Could not open architecture file!\n");
-		}
-		
-		// Still need to assemble program, so do that now
-		_numTokens = 0;
-		_tokens.clear();
 
-		_archProcessed = true;
-		_parseMode = ParseMode::Assembler;
-		Parse(filename);
+		// Once we reach EOF, close the file
+		inFile2.close();
+	}
+	else
+	{
+		printf("Could not open architecture file!\n");
 	}
 }
 
@@ -430,17 +445,6 @@ void Parser::ParseLineIntoTokens(const char* line, const char* delimiters)
 	{
 		switch (tokens[0])
 		{
-			case '*':
-				if (!_archProcessed)
-					_lineType = LineType::File;
-				else
-				{
-					printf("      -- Arch File already processed -- Treating as a blank line!\n");
-					_lineType = LineType::Blank;
-				}
-
-				break;
-
 			case DIRECTIVE_KEYS[0]:
 				_lineType = LineType::Directive;
 				break;
@@ -481,7 +485,11 @@ int Parser::ParseToken(int i)
 	if (!strcmp(directive_parse, ARCH_STR))
 	{
 		_currTokenType = TokenType::Architecture;
-
+		return 1;
+	}
+	if (!strcmp(directive_parse, INCLUDE_STR) || !strcmp(directive_parse, INSERT_STR))
+	{
+		_currTokenType = TokenType::Include;
 		return 1;
 	}
 	else if (!strcmp(directive_parse, ORIGIN_STR))
@@ -830,7 +838,7 @@ void Parser::CalculateBase(int i, int* base, char** arg)
 	}
 }
 
-bool Parser::IsNumeric(char* c)
+bool Parser::IsNumeric(const char* c)
 {
 	bool digit = false;
 
@@ -856,21 +864,20 @@ bool Parser::IsNumeric(char* c)
 	return false;
 }
 
-vector<string> Parser::SplitString(string s, string delimiter)
+const string Parser::SplitFilename(const string& s, const string& preferredPath, const string& preferredExtension, bool forcePreferred)
 {
-	vector<string> tokens;
-	int i = 0;
-	size_t pos = 0;
-	while ((pos = s.find(delimiter)) != string::npos)
-	{
-		tokens.push_back(s.substr(0, pos));
-		//printf("%s\n", tokens[i].c_str());
-		s.erase(0, pos + delimiter.length());
+	size_t last_slash = s.find_last_of("/\\");
+	string path = s.substr(0, last_slash);
+	string file_and_extension = s.substr(last_slash + 1);
+	size_t extension_dot = file_and_extension.find_last_of(".");
+	string file = file_and_extension.substr(0, extension_dot);
+	string extension = "." + file_and_extension.substr(extension_dot + 1);
 
-		i++;
-	}
-	tokens.push_back(s);
-	//printf("%s\n", tokens[i].c_str());
+	if (last_slash == string::npos || forcePreferred)
+		path = preferredPath;
 
-	return tokens;
+	if (extension_dot == string::npos || forcePreferred)
+		extension = preferredExtension;
+
+	return path + file + extension;		
 }
