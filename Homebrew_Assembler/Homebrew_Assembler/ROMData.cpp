@@ -22,6 +22,11 @@ void ROMData::AddEntryToCurrentAddress(int value)
 	_values.push_back(value);
 }
 
+void ROMData::SetArchitecture(const string& arch)
+{
+	_architecture = arch;
+}
+
 void ROMData::SetStartAddress(int a)
 {
 	_startAddress = a;
@@ -44,10 +49,12 @@ void ROMData::SetPattern(const string& p)
 
 void ROMData::PrintTable()
 {
-	printf("\n----------------------------------------------------\n");
+	printf("\n=====================================================\n");
 	printf("                  ROM DATA TABLE\n");
-	printf("----------------------------------------------------");
-
+	printf("=====================================================\n");
+	printf("ADDR: 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n");
+	printf("-----------------------------------------------------");
+	int byteCount = 0;
 	int columnCount = 0;
 	int lastVal = -1;
 	int currRow = 0;
@@ -59,7 +66,7 @@ void ROMData::PrintTable()
 
 		if (columnCount == 0 || columnCount == 16)
 		{
-			printf("\n%02x:", i);
+			printf("\n%04x:", i);
 			columnCount = 0;
 
 			currRow++;
@@ -69,7 +76,9 @@ void ROMData::PrintTable()
 		if (i < _addresses.size() && i < _values.size() && GetValueAtAddress(i, &v))
 		{
 			printf(" %02x", v);
-			lastVal = v;			
+			lastVal = v;	
+
+			byteCount++;
 		}
 		else
 		{
@@ -89,14 +98,21 @@ void ROMData::PrintTable()
 		columnCount++;
 	}
 
+	printf("\n=====================================================\n");
+	printf("\n%d Bytes written to ROM\n", byteCount + 1);
 	printf("\n\n\n");
 }
 
 void ROMData::PrintList() 
 {
-	printf("-------------------------\n");
+	printf("\nArchitecture: %s\n\n", _architecture.c_str());
+
+	printf("Start Address: %04X\n", _startAddress);
+	printf("End Address:   %04X\n", _endAddress);
+
+	printf("\n=========================\n");
 	printf("     PROGRAM LISTING\n");
-	printf("-------------------------\n");
+	printf("=========================\n");
 
 	int lastVal = -1;
 	int ellipsisPrinted = false;
@@ -107,15 +123,15 @@ void ROMData::PrintList()
 		int v = -1;
 		if (i < _addresses.size() && i < _values.size() && GetValueAtAddress(addressCalc, &v))
 		{
-			printf("%02x: %02x   (%s)\n", addressCalc, v, _patterns[i].c_str());
+			printf("%04x: %02x   (%s)\n", addressCalc, v, _patterns[i].c_str());
 			lastVal = v;
 		}
 		else
 		{
 			if (lastVal != 0)
-				printf("%02x: %02x   (empty)\n", addressCalc, 0);
+				printf("%04x: %02x   (empty)\n", addressCalc, 0);
 			else if (lastVal == 0 && i == _endAddress)
-				printf("%02x: %02x   (empty)\n", addressCalc, 0);
+				printf("%04x: %02x   (empty)\n", addressCalc, 0);
 			else if (!ellipsisPrinted)
 			{
 				printf("  ...\n");
@@ -125,7 +141,8 @@ void ROMData::PrintList()
 			lastVal = 0;
 		}
 	}
-	
+
+	printf("=========================\n");
 	printf("\n");
 }
 

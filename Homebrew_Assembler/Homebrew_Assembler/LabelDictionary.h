@@ -13,6 +13,7 @@ public:
 	void AddCurrentEntry();
 	void Add(const string& newLabel, int newVal);
 	bool GetLabel(const char* c);
+	int GetLabelValue(const char* c);
 
 	string currLabel;
 	int currValue;

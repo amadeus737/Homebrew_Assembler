@@ -34,8 +34,8 @@ int main(int argc, char** argv)
 
 		// While in development, I'll keep console printing to verbose so that we can keep an eye
 		// on the inner-workings of the assembler
-		parser.SetParseMode(ParseMode::Architecture);
-		parser.SetOutMode(OutMode::Verbose);
+		parser.SetParseMode(ParseMode::Assembler);
+		parser.SetOutMode(OutMode::Brief);
 
 		// Initiate parsing of file
 		parser.Parse(filename);

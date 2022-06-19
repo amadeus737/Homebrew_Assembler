@@ -46,3 +46,21 @@ bool LabelDictionary::GetLabel(const char* c)
 
 	return false;
 }
+
+int LabelDictionary::GetLabelValue(const char* c)
+{
+	for (int i = 0; i < _labels.size(); i++)
+	{
+		const char* lbl = _labels[i].c_str();
+
+		if (!strcmp(c, lbl))
+		{
+			//currLabel = lbl;
+			//currValue = _values[i];
+
+			return _values[i];
+		}
+	}
+
+	return -1;
+}

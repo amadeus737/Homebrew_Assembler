@@ -1,4 +1,5 @@
 #include <vector>
+#include <string>
 
 using namespace std;
 
@@ -9,6 +10,7 @@ public:
 
 	void AddEntry(int address, int value);
 	void AddEntryToCurrentAddress(int value);
+	void SetArchitecture(const string& arch);
 	void SetStartAddress(int a);
 	void SetCurrentAddress(int a);
 	void IncrementCurrentAddress(int n) { _currAddress += n; }
@@ -27,4 +29,5 @@ private:
 	vector<int> _addresses;
 	vector<int> _values;
 	vector<string> _patterns;
+	string _architecture;
 };

@@ -3,30 +3,82 @@ register	8			=	a, b, c, d, e, f
 register	16			=	pc, ra, int
 register	16			=	sp, si, di
 
+; Define control lines
+; Fetch unit - bottom 8 bits
+control Null          $00000000
+control ConstLoad	  $00000001
+
+; Decode unit - second set of 8 bits (assert)
+control DataAssert_00 $00000000
+control DataAssert_01 $00000100
+control DataAssert_02 $00000200
+control DataAssert_03 $00000300
+control DataAssert_04 $00000400
+control DataAssert_05 $00000500
+control DataAssert_06 $00000600
+control DataAssert_07 $00000700
+control DataAssert_08 $00000800
+control DataAssert_09 $00000900
+control DataAssert_10 $00000A00
+control DataAssert_11 $00000B00
+control DataAssert_12 $00000C00
+control DataAssert_13 $00000D00
+control DataAssert_14 $00000E00
+control DataAssert_15 $00000F00
+
+; Decode unit - second set of 8 bits (load)
+control DataLoad_00   $00000000
+control DataLoad_01   $00001000
+control DataLoad_02	  $00002000
+control DataLoad_03   $00003000
+control DataLoad_04   $00004000
+control DataLoad_05   $00005000
+control DataLoad_06   $00006000
+control DataLoad_07   $00007000
+control DataLoad_08   $00008000
+control DataLoad_09   $00009000
+control DataLoad_10   $0000A000
+control DataLoad_11   $0000B000
+control DataLoad_12   $0000C000
+control DataLoad_13   $0000D000
+control DataLoad_14   $0000E000
+control DataLoad_15   $0000F000
+
+; Control aliases (asserts)
+control_alias DataAssert_A = DataAssert_01
+control_alias DataAssert_B = DataAssert_02
+control_alias DataAssert_Const = DataAssert_05
+control_alias TestORoperation = { DataAssert_01 | DataAssert_02 | ConstLoad | DataAssert_A }
+
+; Control aliases (load)
+control_alias DataLoad_A = DataLoad_01
+control_alias DataLoad_B = DataLoad_02
+
 ; Define opcodes
 ; nop
-opcode	8	nop			=	$00
+opcode			8	nop			=	$00 { Null }
 
 ; Leave space for BRK and other things before we get to register opcodes
 
 ; Constant load opcodes (x86 style)
-opcode	8	mov a, #	=	$0A
-opcode	8	mov b, #	=	$0B
+opcode			8	mov a, #	=	$0A		{ ConstLoad | DataAssert_Const | DataLoad_01 }
+opcode			8	mov b, #	=	$0B		{ ConstLoad | DataAssert_Const | DataLoad_02 }
 
 ; Constant load opcodes (6502 style)
-opcode_alias	8	lda #		=	$0A
-opcode_alias	8	ldb #		=	$0B
+opcode_alias	8	lda #		=	$0A		{ ConstLoad | DataAssert_Const | DataLoad_01 }
+opcode_alias	8	ldb #		=	$0B		{ ConstLoad | DataAssert_Const | DataLoad_02 }
 
 ; Register transfer opcodes (x86 style)
-opcode	8	mov a, b	=	$10
-opcode	8	mov b, a	=	$15
+opcode			8	mov a, b	=	$10		{ DataAssert_B | DataLoad_A }
+opcode			8	mov b, a	=	$15		{ DataAssert_A | DataLoad_B }
 
 ; Register transfer opcodes (6502 style)
-opcode_alias	8	tab			=	$10
-opcode_alias	8	tba			=	$15
+opcode_alias	8	tab			=	$10		{ DataAssert_B | DataLoad_A }
+opcode_alias	8	tba			=	$15		{ DataAssert_A | DataLoad_B }
 
-opcode 8 mov #, a = $2E
-opcode 8 mov #, b = $2F
-
-opcode_alias 8 sta # = $2E
-opcode_alias 8 stb # = $2F
+; ROM Data
+programROM 8 32768 _default_
+controlROM 8 32768 "Decode_0"
+controlROM 8 32768 "Decode_1"
+controlROM 8 32768 "Execute_0"
+controlROM 8 32768 "Execute_1"
