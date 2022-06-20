@@ -24,3 +24,4 @@ constexpr const char* CONTROL_STR = "control";
 constexpr const char* CONTROL_ALIAS_STR = "control_alias";
 constexpr const char* OPCODE_STR = "opcode";
 constexpr const char* OPCODE_ALIAS_STR = "opcode_alias";
+constexpr const char* CONTROL_ROM_STR = "controlROM";

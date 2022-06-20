@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 		if (argc < 2)
 		{
 			printf("WARNING! : Expected input file! Using demo.asm as default\n");
-			filename = (char*)"..\\Homebrew_Assembler\\Assembly_Code\\demo.asm";
+			filename = (char*)"..\\Homebrew_Assembler\\Assembly_Code\\hello_world.asm";
 		}
 		else
 		{
@@ -35,7 +35,7 @@ int main(int argc, char** argv)
 		// While in development, I'll keep console printing to verbose so that we can keep an eye
 		// on the inner-workings of the assembler
 		parser.SetParseMode(ParseMode::Assembler);
-		parser.SetOutMode(OutMode::Brief);
+		parser.SetOutMode(OutMode::Verbose);
 
 		// Initiate parsing of file
 		parser.Parse(filename);

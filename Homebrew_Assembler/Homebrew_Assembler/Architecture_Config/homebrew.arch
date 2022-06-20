@@ -10,39 +10,39 @@ control ConstLoad	  $00000001
 
 ; Decode unit - second set of 8 bits (assert)
 control DataAssert_00 $00000000
-control DataAssert_01 $00000100
-control DataAssert_02 $00000200
-control DataAssert_03 $00000300
-control DataAssert_04 $00000400
-control DataAssert_05 $00000500
-control DataAssert_06 $00000600
-control DataAssert_07 $00000700
-control DataAssert_08 $00000800
-control DataAssert_09 $00000900
-control DataAssert_10 $00000A00
-control DataAssert_11 $00000B00
-control DataAssert_12 $00000C00
-control DataAssert_13 $00000D00
-control DataAssert_14 $00000E00
-control DataAssert_15 $00000F00
+control DataAssert_01 $00010000
+control DataAssert_02 $00020000
+control DataAssert_03 $00030000
+control DataAssert_04 $00040000
+control DataAssert_05 $00050000
+control DataAssert_06 $00060000
+control DataAssert_07 $00070000
+control DataAssert_08 $00080000
+control DataAssert_09 $00090000
+control DataAssert_10 $000A0000
+control DataAssert_11 $000B0000
+control DataAssert_12 $000C0000
+control DataAssert_13 $000D0000
+control DataAssert_14 $000E0000
+control DataAssert_15 $000F0000
 
 ; Decode unit - second set of 8 bits (load)
 control DataLoad_00   $00000000
-control DataLoad_01   $00001000
-control DataLoad_02	  $00002000
-control DataLoad_03   $00003000
-control DataLoad_04   $00004000
-control DataLoad_05   $00005000
-control DataLoad_06   $00006000
-control DataLoad_07   $00007000
-control DataLoad_08   $00008000
-control DataLoad_09   $00009000
-control DataLoad_10   $0000A000
-control DataLoad_11   $0000B000
-control DataLoad_12   $0000C000
-control DataLoad_13   $0000D000
-control DataLoad_14   $0000E000
-control DataLoad_15   $0000F000
+control DataLoad_01   $00100000
+control DataLoad_02	  $00200000
+control DataLoad_03   $00300000
+control DataLoad_04   $00400000
+control DataLoad_05   $00500000
+control DataLoad_06   $00600000
+control DataLoad_07   $00700000
+control DataLoad_08   $00800000
+control DataLoad_09   $00900000
+control DataLoad_10   $00A00000
+control DataLoad_11   $00B00000
+control DataLoad_12   $00C00000
+control DataLoad_13   $00D00000
+control DataLoad_14   $00E00000
+control DataLoad_15   $00F00000
 
 ; Control aliases (asserts)
 control_alias DataAssert_A = DataAssert_01
@@ -77,8 +77,8 @@ opcode_alias	8	tab			=	$10		{ DataAssert_B | DataLoad_A }
 opcode_alias	8	tba			=	$15		{ DataAssert_A | DataLoad_B }
 
 ; ROM Data
-programROM 8 32768 _default_
-controlROM 8 32768 "Decode_0"
-controlROM 8 32768 "Decode_1"
-controlROM 8 32768 "Execute_0"
-controlROM 8 32768 "Execute_1"
+programROM 8 32768
+controlROM 8 32768 Decode_0
+controlROM 8 32768 Decode_1
+controlROM 8 32768 Execute_0
+controlROM 8 32768 Execute_1

@@ -1,1 +1,17 @@
-﻿  Homebrew_Assembler.vcxproj -> C:\Users\c\Documents\GitHub\Homebrew_Assembler\Homebrew_Assembler\x64\Debug\Homebrew_Assembler.exe
+﻿  Parser.cpp
+C:\Users\c\Documents\GitHub\Homebrew_Assembler\Homebrew_Assembler\Homebrew_Assembler\Parser.cpp(983,10): warning C4302: 'type cast': truncation from '_Ty' to 'unsigned char'
+          with
+          [
+              _Ty=char *
+          ]
+C:\Users\c\Documents\GitHub\Homebrew_Assembler\Homebrew_Assembler\Homebrew_Assembler\Parser.cpp(996,55): warning C4311: 'type cast': pointer truncation from '_Ty' to 'int'
+          with
+          [
+              _Ty=char *
+          ]
+C:\Users\c\Documents\GitHub\Homebrew_Assembler\Homebrew_Assembler\Homebrew_Assembler\Parser.cpp(996,55): warning C4302: 'type cast': truncation from '_Ty' to 'int'
+          with
+          [
+              _Ty=char *
+          ]
+  Homebrew_Assembler.vcxproj -> C:\Users\c\Documents\GitHub\Homebrew_Assembler\Homebrew_Assembler\x64\Debug\Homebrew_Assembler.exe

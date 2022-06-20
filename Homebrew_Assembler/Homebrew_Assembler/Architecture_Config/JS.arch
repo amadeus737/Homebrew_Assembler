@@ -1,0 +1,76 @@
+register 8 a, b, c, d
+register 8 tl, th
+register 16 si, di
+register 16 tx
+register 16 pc
+register 16 ra
+register 16 sp
+
+; Pipeline 1A
+control Ctrl_ConstantLoad = $00000001
+	
+; Pipeline 2A
+control Ctrl_MainBus_Assert0 = $00000000
+control Ctrl_MainBus_Assert1 = $00010000
+control Ctrl_MainBus_Assert2 = $00020000
+control Ctrl_MainBus_Assert3 = $00030000
+control Ctrl_MainBus_Assert4 = $00040000
+control Ctrl_MainBus_Assert5 = $00050000
+control Ctrl_MainBus_Assert6 = $00060000
+control Ctrl_MainBus_Assert7 = $00070000
+control Ctrl_MainBus_Assert8 = $00080000
+control Ctrl_MainBus_Assert9 = $00090000
+control Ctrl_MainBus_Assert10 = $000A0000
+control Ctrl_MainBus_Assert11 = $000B0000
+control Ctrl_MainBus_Assert12 = $000C0000
+control Ctrl_MainBus_Assert13 = $000D0000
+control Ctrl_MainBus_Assert14 = $000E0000
+control Ctrl_MainBus_Assert15 = $000F0000
+	
+control_alias Ctrl_MainBus_Assert_A        = Ctrl_MainBus_Assert_1
+control_alias Ctrl_MainBus_Assert_B        = Ctrl_MainBus_Assert_2
+control_alias Ctrl_MainBus_Assert_C        = Ctrl_MainBus_Assert_3
+control_alias Ctrl_MainBus_Assert_D        = Ctrl_MainBus_Assert_4
+control_alias Ctrl_MainBus_Assert_Constant = Ctrl_MainBus_Assert_5
+	
+control Ctrl_MainBus_Load0 = $00000000
+control Ctrl_MainBus_Load1 = $00100000
+control Ctrl_MainBus_Load2 = $00200000
+control Ctrl_MainBus_Load3 = $00300000
+control Ctrl_MainBus_Load4 = $00400000
+control Ctrl_MainBus_Load5 = $00500000
+control Ctrl_MainBus_Load6 = $00600000
+control Ctrl_MainBus_Load7 = $00700000
+control Ctrl_MainBus_Load8 = $00800000
+control Ctrl_MainBus_Load9 = $00900000
+control Ctrl_MainBus_Load10 = $00A00000
+control Ctrl_MainBus_Load11 = $00B00000
+control Ctrl_MainBus_Load12 = $00C00000
+control Ctrl_MainBus_Load13 = $00D00000
+control Ctrl_MainBus_Load14 = $00E00000
+control Ctrl_MainBus_Load15 = $00F00000
+		
+control_alias Ctrl_MainBus_Load_A = Ctrl_MainBus_Load_1
+control_alias Ctrl_MainBus_Load_B = Ctrl_MainBus_Load_2
+control_alias Ctrl_MainBus_Load_C = Ctrl_MainBus_Load_3
+control_alias Ctrl_MainBus_Load_D = Ctrl_MainBus_Load_4
+
+opcode 8 nop = $00 { Ctrl_MainBus_Assert0 }
+
+opcode 8 mov a, # = $01 { Ctrl_ConstantLoad | Ctrl_MainBus_Assert_Constant | Ctrl_MainBus_Load_A }
+opcode 8 mov b, # = $02 { Ctrl_ConstantLoad | Ctrl_MainBus_Assert_Constant | Ctrl_MainBus_Load_B }
+opcode 8 mov c, # = $03 { Ctrl_ConstantLoad | Ctrl_MainBus_Assert_Constant | Ctrl_MainBus_Load_C }
+opcode 8 mov d, # = $04 { Ctrl_ConstantLoad | Ctrl_MainBus_Assert_Constant | Ctrl_MainBus_Load_D }
+
+opcode mov a, b = $07 { Ctrl_MainBus_Assert_B | Ctrl_MainBus_Load_A }
+opcode mov a, c = $08 { Ctrl_MainBus_Assert_C | Ctrl_MainBus_Load_A }
+opcode mov a, d = $09 { Ctrl_MainBus_Assert_D | Ctrl_MainBus_Load_A }
+opcode mov b, a = $0A { Ctrl_MainBus_Assert_A | Ctrl_MainBus_Load_B }
+opcode mov b, c = $0B { Ctrl_MainBus_Assert_C | Ctrl_MainBus_Load_B }
+opcode mov b, d = $0C { Ctrl_MainBus_Assert_D | Ctrl_MainBus_Load_B }
+opcode mov c, a = $0D { Ctrl_MainBus_Assert_A | Ctrl_MainBus_Load_C }
+opcode mov c, b = $0E { Ctrl_MainBus_Assert_B | Ctrl_MainBus_Load_C }
+opcode mov c, d = $0F { Ctrl_MainBus_Assert_D | Ctrl_MainBus_Load_C }
+opcode mov d, a = $10 { Ctrl_MainBus_Assert_A | Ctrl_MainBus_Load_D }
+opcode mov d, b = $11 { Ctrl_MainBus_Assert_B | Ctrl_MainBus_Load_D }
+opcode mov d, c = $12 { Ctrl_MainBus_Assert_C | Ctrl_MainBus_Load_D }

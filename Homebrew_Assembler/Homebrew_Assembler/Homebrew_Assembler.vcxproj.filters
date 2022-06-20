@@ -67,5 +67,9 @@
     <None Include="Assembly_Code\test2.asm">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="Assembly_Code\hello_world.asm">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Architecture_Config\JS.arch" />
   </ItemGroup>
 </Project>

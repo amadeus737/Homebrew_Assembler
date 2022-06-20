@@ -160,7 +160,7 @@ bool ROMData::GetValueAtAddress(int a, int* v)
 	return false;
 }
 
-void ROMData::Write(const char* filename, const unsigned int size)
+void ROMData::WriteProgram(const char* filename, const unsigned int size)
 {
 	// Create the binary file
 	FILE *file = fopen(filename, "wb");
@@ -185,4 +185,52 @@ void ROMData::Write(const char* filename, const unsigned int size)
 	fclose(file);
 
 	delete [] romData;
+}
+
+void ROMData::SetBitWidth(int bw)
+{
+	_bitWidth = bw;
+}
+
+void ROMData::SetROMsize(int s)
+{
+	_romSize = s;
+}
+
+void ROMData::SetROMname(string n)
+{
+	_romName = n;
+}
+
+void ROMData::WriteControlROM()
+{
+	// Setup the filepath string for the ROM file
+	string path = "..\\Homebrew_Assembler\\ROM_Files\\";
+	string extension = ".bin";
+	string fullFile = path + _romName + extension;
+	printf("\n\nWriting Control ROM data to %s\n", fullFile.c_str());
+
+	// Create the binary file
+	FILE* file = fopen(fullFile.c_str(), "wb");
+	if (!file)
+	{
+		printf("!!! CRITICAL ERROR: Cannot open file %s for writing to Control ROM !!!\n", fullFile);
+		return;
+	}
+
+	// unsigned char bc its size is 1 byte = 8 bits
+	unsigned char* romData = new unsigned char[_romSize];  // 32768 = 32 KBytes = 256 KBits
+	memset(romData, 0x00, _romSize);  // Set 32768 bytes to 0x00
+	
+	// copy from _values to romData
+	for (int i = 0; i < _values.size(); i++)
+	{
+		romData[i] = (unsigned char)_values[i];
+	}
+
+	// Write data to binary file (will be written to ROM via TL86II Plus Programmer)
+	fwrite(romData, 1, 32768, file);
+	fclose(file);
+
+	delete[] romData;
 }

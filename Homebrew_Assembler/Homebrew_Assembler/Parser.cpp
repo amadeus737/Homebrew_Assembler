@@ -147,7 +147,7 @@ void Parser::Parse(const char* filename)
 		// file and can write the program to ROM.
 		if (retCode == 0 && !_processingExternFile) 
 		{
-			WriteToROM(filename);
+			WriteProgramToROM(filename);
 		}
 
 		// Once we reach EOF, close the file
@@ -205,7 +205,7 @@ void Parser::Parse(const char* filename)
 	DESCRIPTION:
 		  This function just prints a few versions of the interpreted program to the screen and writes the ROM data to a binary file.
 ===========================================================================================================================================*/
-void Parser::WriteToROM(const char* filename)
+void Parser::WriteProgramToROM(const char* filename)
 {
 	// Setup the filepath string for the ROM file
 	string filename_s = (string)filename;
@@ -221,7 +221,12 @@ void Parser::WriteToROM(const char* filename)
 	_programROM.PrintTable();
 
 	// Write the data to the ROM binary file
-	_programROM.Write((char*)fullFile.c_str(), 32768);
+	_programROM.WriteProgram((char*)fullFile.c_str(), 32768);
+
+	for (int i = 0; i < _controlROMs.size(); i++)
+	{
+		_controlROMs[i].WriteControlROM();
+	}
 }
 
 /*============================================ Parser::ParseLineIntoTokens()================================================================
@@ -350,6 +355,13 @@ int Parser::ParseToken(int i)
 			_opcodeIsAliased = true;
 		}
 
+		if (!strcmp(_tokens[0], CONTROL_ROM_STR))
+		{
+			_lineType = LineType::ControlROM;
+			_controlROMindex++;
+			_controlROMs.push_back(ROMData());
+		}
+
 		if (strcmp(symbol_parse, _tokens[0]))
 		{
 			_currTokenType = TokenType::Symbol;
@@ -470,17 +482,24 @@ int Parser::ParseToken(int i)
 
 		if (i > 1)
 		{
-			int base;
-			char* arg;
-			CalculateBase(i, &base, &arg);
+			if (i >= 2)
+			{
+				if (strcmp(_tokens[i], "="))
+				{
+					int base;
+					char* arg;
+					CalculateBase(i, &base, &arg);
 
-			int val = stoi(arg, nullptr, base);
+					int val = stoi(arg, nullptr, base);
 
-			_controlDictionary.currValue = val;
-			_controlDictionary.AddCurrentEntry();
+					_controlDictionary.currValue = val;
+					_controlDictionary.AddCurrentEntry();
 
-			if (_outMode == OutMode::Verbose)
-				printf("Adding Label %s with Value %08x\n", _controlDictionary.currLabel.c_str(), _controlDictionary.currValue);
+					if (_outMode == OutMode::Verbose)
+						printf("Adding Label %s with Value %08x\n", _controlDictionary.currLabel.c_str(), _controlDictionary.currValue);
+				}
+			}
+		
 		}
 	}
 
@@ -516,7 +535,7 @@ int Parser::ParseToken(int i)
 			else
 			{
 				int val = _controlDictionary.GetLabelValue((char*)_tokens[i]);
-
+				printf("         -> Val %s from dictionary: %08x\n", _tokens[i], val);
 				if (val == -1)
 				{
 					int base;
@@ -526,7 +545,7 @@ int Parser::ParseToken(int i)
 					val = stoi(arg, nullptr, base);
 				}
 								
-				if (_outMode == OutMode::Verbose)
+				//if (_outMode == OutMode::Verbose)
 					printf("         -> Val %s from dictionary: %08x\n", _tokens[i], val);
 
 				switch (_lastOperation)
@@ -791,7 +810,7 @@ int Parser::ParseToken(int i)
 						val = stoi(arg, nullptr, base);
 					}
 
-					if (_outMode == OutMode::Verbose)
+					//if (_outMode == OutMode::Verbose)
 						printf("         -> Val %s from dictionary: %08x\n", _tokens[i], val);
 
 					switch (_lastOperation)
@@ -831,6 +850,26 @@ int Parser::ParseToken(int i)
 					}
 				}				
 			}
+		}
+	}
+
+	if (_lineType == LineType::ControlROM && i > 0)
+	{
+		if (i == 1)
+		{
+			int val = stoi(_tokens[i]);
+			_controlROMs[_controlROMindex].SetBitWidth(val);
+		}
+
+		if (i == 2)
+		{
+			int val = stoi(_tokens[i]);
+			_controlROMs[_controlROMindex].SetROMsize(val);
+		}
+
+		if (i == 3)
+		{
+			_controlROMs[_controlROMindex].SetROMname(string(_tokens[i],strlen(_tokens[i])));
 		}
 	}
 
@@ -927,16 +966,32 @@ int Parser::ParseToken(int i)
 							_opcodeDictionary.currNumArgs++;
 						}
 					}
+					else if (_labelDictionary.GetLabel(arg))
+					{
+						if (_opcodeDictionary.currNumArgs == 0)
+						{
+							_opcodeDictionary.currArg0type = ArgType::Numeral;
+							_opcodeDictionary.currArg0num = _labelDictionary.currValue;
+							_opcodeDictionary.currNumArgs++;
+						}						
+					}
 					else
 					{
-						if (_labelDictionary.GetLabel(arg))
+						if ((unsigned char)_tokens[i] <= 127)
 						{
-							if (_opcodeDictionary.currNumArgs == 0)
+							char* a = strtok(_tokens[i], "\"");
+
+							for (; *a; a++)
 							{
-								_opcodeDictionary.currArg0type = ArgType::Numeral;
-								_opcodeDictionary.currArg0num = _labelDictionary.currValue;
-								_opcodeDictionary.currNumArgs++;
+								char currChar = *a != '/' ? *a : ' ';
+
+							
+									printf("      -- %02x: %c (%02x)\n", _programROM.GetCurrentAddress(), currChar, currChar);
 							}
+
+							_opcodeDictionary.currArg0type = ArgType::Ascii;
+							_opcodeDictionary.currArg0num = (int)_tokens[i];
+							_opcodeDictionary.currNumArgs++;
 						}
 					}
 				}
@@ -971,17 +1026,32 @@ int Parser::ParseToken(int i)
 							_opcodeDictionary.currNumArgs++;
 						}
 					}
+					else if (_labelDictionary.GetLabel(arg))
+					{
+						if (_opcodeDictionary.currNumArgs > 0)
+						{
+							_opcodeDictionary.currArg1type = ArgType::Numeral;
+							_opcodeDictionary.currArg1num = _labelDictionary.currValue;
+							_opcodeDictionary.currNumArgs++;
+						}		
+					}
 					else
 					{
-						if (_labelDictionary.GetLabel(arg))
+						char* a = strtok(_tokens[i], "\"");
+
+						char currChar;
+						for (; *a; a++)
 						{
-							if (_opcodeDictionary.currNumArgs > 0)
-							{
-								_opcodeDictionary.currArg1type = ArgType::Numeral;
-								_opcodeDictionary.currArg1num = _labelDictionary.currValue;
-								_opcodeDictionary.currNumArgs++;
-							}
+							currChar = *a != '/' ? *a : ' ';
+
+
+							printf("      -- %02x: %c (%02x)\n", _programROM.GetCurrentAddress(), currChar, currChar);
 						}
+
+							_opcodeDictionary.currArg1type = ArgType::Ascii;
+							_opcodeDictionary.currArg1num = (int)currChar;
+							_opcodeDictionary.currNumArgs++;
+
 					}
 
 					_currTokenType = TokenType::None;
@@ -1009,7 +1079,7 @@ int Parser::ParseToken(int i)
 
 		if (_opcodeDictionary.currNumArgs == 1)
 		{
-			if (_opcodeDictionary.currArg0type == ArgType::Numeral && _opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, &oc_size, &oc_value, &oc_ctrlPattern))
+			if ((_opcodeDictionary.currArg0type == ArgType::Numeral || _opcodeDictionary.currArg0type == ArgType::Ascii) && _opcodeDictionary.Get1ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0num, &oc_size, &oc_value, &oc_ctrlPattern))
 			{
 				if (_outMode == OutMode::Verbose)
 					printf("      -- %02x: %02x (%s)\n", _programROM.GetCurrentAddress(), oc_value, _opcodeDictionary.currMnemonic.c_str());
@@ -1017,9 +1087,22 @@ int Parser::ParseToken(int i)
 				_programROM.SetPattern(_opcodeDictionary.currMnemonic + " #");
 				_programROM.IncrementCurrentAddress(oc_size/8);
 				if (_outMode == OutMode::Verbose)
-					printf("      -- %02x: %02x\n", _programROM.GetCurrentAddress(), _opcodeDictionary.currArg0num);
-				_programROM.AddEntryToCurrentAddress(_opcodeDictionary.currArg0num);
-				_programROM.SetPattern("#");
+				{
+					if (_opcodeDictionary.currArg0type == ArgType::Numeral)
+						printf("      -- %02x: %02x\n", _programROM.GetCurrentAddress(), _opcodeDictionary.currArg0num);
+					else
+						printf("      -- %02x: %c\n", _programROM.GetCurrentAddress(), _opcodeDictionary.currArg0num);
+				}
+				_programROM.AddEntryToCurrentAddress(_opcodeDictionary.currArg0num);				
+				
+				char c = static_cast<char>(_opcodeDictionary.currArg0num);
+				printf("Char is %c\n", c);
+				string s(1, c);
+
+				if (_opcodeDictionary.currArg0type == ArgType::Numeral)
+					_programROM.SetPattern("#");
+				else
+					_programROM.SetPattern(s);
 				_programROM.IncrementCurrentAddress(1);
 			}
 
@@ -1045,7 +1128,7 @@ int Parser::ParseToken(int i)
 				_programROM.IncrementCurrentAddress(oc_size/8);
 			}
 
-			if (_opcodeDictionary.currArg0type == ArgType::Register && _opcodeDictionary.currArg1type == ArgType::Numeral &&
+			if (_opcodeDictionary.currArg0type == ArgType::Register && (_opcodeDictionary.currArg1type == ArgType::Numeral || _opcodeDictionary.currArg1type == ArgType::Ascii) &&
 				_opcodeDictionary.Get2ArgOpcode(_opcodeDictionary.currMnemonic, _opcodeDictionary.currArg0string, _opcodeDictionary.currArg1num, &oc_size, &oc_value, &oc_ctrlPattern))
 			{
 				if (_outMode == OutMode::Verbose)
@@ -1054,9 +1137,21 @@ int Parser::ParseToken(int i)
 				_programROM.SetPattern(_opcodeDictionary.currMnemonic + " " + _opcodeDictionary.currArg0string + ", #");
 				_programROM.IncrementCurrentAddress(oc_size/8);
 				if (_outMode == OutMode::Verbose)
-					printf("      -- %02x: %02x\n", _programROM.GetCurrentAddress(), _opcodeDictionary.currArg1num);
+				{
+					if (_opcodeDictionary.currArg1type == ArgType::Numeral)
+						printf("      -- %02x: %02x\n", _programROM.GetCurrentAddress(), _opcodeDictionary.currArg1num);
+					else
+						printf("      -- %02x: %c\n", _programROM.GetCurrentAddress(), _opcodeDictionary.currArg1num);
+				}
 				_programROM.AddEntryToCurrentAddress(_opcodeDictionary.currArg1num);
-				_programROM.SetPattern("#");
+				char c = static_cast<char>(_opcodeDictionary.currArg1num);
+				printf("Char is %c\n", c);
+				string s(1, c);
+
+				if (_opcodeDictionary.currArg1type == ArgType::Numeral)
+					_programROM.SetPattern("#");
+				else
+					_programROM.SetPattern(s);
 				_programROM.IncrementCurrentAddress(1);
 			}
 

@@ -3,7 +3,7 @@
 
 using namespace std;
 
-enum class ArgType { None, Register, Numeral };
+enum class ArgType { None, Register, Numeral, Ascii };
 
 class OpcodeDictionary
 {

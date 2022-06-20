@@ -156,7 +156,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Architecture_Config\homebrew.arch" />
+    <None Include="Architecture_Config\JS.arch" />
     <None Include="Assembly_Code\demo.asm" />
+    <None Include="Assembly_Code\hello_world.asm" />
     <None Include="Assembly_Code\test1.asm" />
     <None Include="Assembly_Code\test2.asm" />
   </ItemGroup>

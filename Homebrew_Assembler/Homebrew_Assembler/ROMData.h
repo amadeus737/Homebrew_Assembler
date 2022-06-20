@@ -20,9 +20,15 @@ public:
 	void SetPattern(const string& p);
 	void PrintList();
 	void PrintTable();
-	void Write(const char* filename, const unsigned int size);
+	void WriteProgram(const char* filename, const unsigned int size);
+	void WriteControlROM();
+	void SetBitWidth(int bw);
+	void SetROMsize(int s);
+	void SetROMname(string n);
 
 private:
+	int _bitWidth;
+	int _romSize;
 	int _currAddress;
 	int _startAddress;
 	int _endAddress;
@@ -30,4 +36,5 @@ private:
 	vector<int> _values;
 	vector<string> _patterns;
 	string _architecture;
+	string _romName;
 };
